@@ -28,28 +28,36 @@ export async function POST(req: Request) {
   for (const tenantId of tenantIds) {
     try {
       if (action === "create") {
-        const { name, type, apiKey, baseUrl, model } = body;
+        const { name, type, apiKey, baseUrl, model, activateAfterCreate } = body;
         if (!name || !type) throw new Error("name و type الزامی است");
         const pt = PROVIDER_TYPES.find((p) => p.code === type);
         if (!pt) throw new Error("نوع نامعتبر");
         if (pt.needsKey && !apiKey) throw new Error("کلید API الزامی است");
+        if (pt.needsBaseUrl && !baseUrl) throw new Error("Base URL الزامی است");
         // Skip if a provider with same name+type already exists for this tenant
         const existing = await db.aiProvider.findFirst({ where: { tenantId, name: String(name).trim(), type } });
+        let providerId: string;
         if (existing) {
           // Update the existing one instead of duplicating
-          await db.aiProvider.update({ where: { id: existing.id }, data: {
+          const updated = await db.aiProvider.update({ where: { id: existing.id }, data: {
             apiKey: apiKey || existing.apiKey,
             baseUrl: baseUrl || existing.baseUrl,
             model: model || existing.model,
           }});
+          providerId = updated.id;
         } else {
-          await db.aiProvider.create({
+          const created = await db.aiProvider.create({
             data: {
               tenantId, name: String(name).trim(), type,
               apiKey: apiKey || "", baseUrl: baseUrl || defaultBaseUrl(type),
               model: model || pt.defaultModel, isActive: true,
             },
           });
+          providerId = created.id;
+        }
+        // Optionally activate the new provider immediately
+        if (activateAfterCreate) {
+          await db.agent.update({ where: { tenantId }, data: { aiProviderId: providerId } });
         }
       } else if (action === "activate") {
         const { providerId, name, type } = body;

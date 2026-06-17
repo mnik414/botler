@@ -1,0 +1,546 @@
+     1→"use client";
+     2→import * as React from "react";
+     3→import { useAsync, SectionCard, CardSkeletons, ErrorState } from "./shared";
+     4→import { api } from "@/lib/api-client";
+     5→import { toFa, formatDate } from "@/lib/format";
+     6→import { Card } from "@/components/ui/card";
+     7→import { Button } from "@/components/ui/button";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Label } from "@/components/ui/label";
+    10→import { Badge } from "@/components/ui/badge";
+    11→import { Checkbox } from "@/components/ui/checkbox";
+    12→import { Skeleton } from "@/components/ui/skeleton";
+    13→import {
+    14→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    15→} from "@/components/ui/dialog";
+    16→import {
+    17→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    18→} from "@/components/ui/select";
+    19→import {
+    20→  Bot, Plus, Trash2, CheckCircle2, XCircle, Loader2, Zap, Key, Globe, Cpu, Power, Lock, Building2,
+    21→  Layers, CheckSquare, Square, AlertCircle,
+    22→} from "lucide-react";
+    23→import { toast } from "sonner";
+    24→import type { LucideIcon } from "lucide-react";
+    25→
+    26→function InlineEmptyState({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
+    27→  return (
+    28→    <div className="flex flex-col items-center justify-center py-10 text-center">
+    29→      <div className="grid place-items-center size-12 rounded-xl bg-muted text-muted-foreground mb-3">
+    30→        <Icon className="size-6" />
+    31→      </div>
+    32→      <div className="font-medium text-sm mb-1">{title}</div>
+    33→      <div className="text-xs text-muted-foreground max-w-xs">{description}</div>
+    34→    </div>
+    35→  );
+    36→}
+    37→
+    38→interface ProviderRow {
+    39→  id: string; tenantId: string; name: string; type: string; baseUrl: string; model: string;
+    40→  isActive: boolean; lastTestedAt: string | null; lastTestOk: boolean | null; createdAt: string;
+    41→}
+    42→interface ProviderTypeMeta { code: string; label: string; desc: string; defaultModel: string; needsBaseUrl: boolean; needsKey: boolean; }
+    43→interface TenantRow { id: string; name: string; slug: string; businessType: string; }
+    44→
+    45→const TYPE_LABELS: Record<string, string> = {
+    46→  zai: "پلتفرم پیش‌فرض", openai: "OpenAI", anthropic: "Anthropic", gemini: "Google Gemini", custom: "سفارشی",
+    47→};
+    48→const TYPE_COLORS: Record<string, string> = {
+    49→  zai: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    50→  openai: "bg-teal-500/15 text-teal-600 border-teal-500/30",
+    51→  anthropic: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+    52→  gemini: "bg-sky-500/15 text-sky-600 border-sky-500/30",
+    53→  custom: "bg-violet-500/15 text-violet-600 border-violet-500/30",
+    54→};
+    55→
+    56→export function AdminAiProviders() {
+    57→  const tenantsReq = useAsync<TenantRow[]>(() => api("/api/tenants"), []);
+    58→  const [selectedTenant, setSelectedTenant] = React.useState<string>("");
+    59→  const [selectedTenants, setSelectedTenants] = React.useState<Set<string>>(new Set());
+    60→  const [bulkMode, setBulkMode] = React.useState(false);
+    61→  const [singleDialogOpen, setSingleDialogOpen] = React.useState(false);
+    62→  const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false);
+    63→  const [testingId, setTestingId] = React.useState<string | null>(null);
+    64→  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+    65→  const [activatingId, setActivatingId] = React.useState<string | null>(null);
+    66→
+    67→  // Auto-select first tenant
+    68→  React.useEffect(() => {
+    69→    if (!selectedTenant && tenantsReq.data && tenantsReq.data.length > 0) {
+    70→      setSelectedTenant(tenantsReq.data[0].id);
+    71→    }
+    72→  }, [tenantsReq.data, selectedTenant]);
+    73→
+    74→  // Load providers for the single selected tenant
+    75→  const providersReq = useAsync<{ providers: ProviderRow[]; activeProviderId: string | null; providerTypes: ProviderTypeMeta[] }>(
+    76→    () => selectedTenant && !bulkMode
+    77→      ? api(`/api/ai-providers?tenantId=${selectedTenant}`)
+    78→      : Promise.resolve({ providers: [], activeProviderId: null, providerTypes: [] }),
+    79→    [selectedTenant, bulkMode]
+    80→  );
+    81→
+    82→  const tenants = tenantsReq.data || [];
+    83→  const providers = providersReq.data?.providers || [];
+    84→  const activeProviderId = providersReq.data?.activeProviderId || null;
+    85→  const providerTypes = providersReq.data?.providerTypes || [];
+    86→  const selectedTenantObj = tenants.find((t) => t.id === selectedTenant);
+    87→
+    88→  const toggleTenant = (id: string) => {
+    89→    setSelectedTenants((prev) => {
+    90→      const next = new Set(prev);
+    91→      if (next.has(id)) next.delete(id); else next.add(id);
+    92→      return next;
+    93→    });
+    94→  };
+    95→
+    96→  const selectAllTenants = () => setSelectedTenants(new Set(tenants.map((t) => t.id)));
+    97→  const clearSelection = () => setSelectedTenants(new Set());
+    98→
+    99→  // Single-tenant operations
+   100→  const testProviderSingle = async (id: string) => {
+   101→    setTestingId(id);
+   102→    try {
+   103→      const res = await api<{ ok: boolean; reply: string; error?: string }>("/api/ai-providers/test", {
+   104→        method: "POST", body: JSON.stringify({ tenantId: selectedTenant, providerId: id }),
+   105→      });
+   106→      if (res.ok) toast.success(`اتصال موفق! ${res.reply.slice(0, 50)}`);
+   107→      else toast.error(`ناموفق: ${res.error}`);
+   108→      providersReq.reload();
+   109→    } catch (e: any) { toast.error(e.message); }
+   110→    finally { setTestingId(null); }
+   111→  };
+   112→
+   113→  const activateSingle = async (id: string) => {
+   114→    setActivatingId(id);
+   115→    try {
+   116→      await api(`/api/ai-providers/${id}?tenantId=${selectedTenant}`, { method: "PATCH", body: JSON.stringify({ activate: true }) });
+   117→      toast.success("فعال شد."); providersReq.reload();
+   118→    } catch (e: any) { toast.error(e.message); }
+   119→    finally { setActivatingId(null); }
+   120→  };
+   121→
+   122→  const deactivateSingle = async (id: string) => {
+   123→    setActivatingId(id);
+   124→    try {
+   125→      await api(`/api/ai-providers/${id}?tenantId=${selectedTenant}`, { method: "PATCH", body: JSON.stringify({ deactivate: true }) });
+   126→      toast.success("به پیش‌فرض بازگشت."); providersReq.reload();
+   127→    } catch (e: any) { toast.error(e.message); }
+   128→    finally { setActivatingId(null); }
+   129→  };
+   130→
+   131→  const removeSingle = async (id: string) => {
+   132→    setDeletingId(id);
+   133→    try {
+   134→      await api(`/api/ai-providers/${id}?tenantId=${selectedTenant}`, { method: "DELETE" });
+   135→      toast.success("حذف شد."); providersReq.reload();
+   136→    } catch (e: any) { toast.error(e.message); }
+   137→    finally { setDeletingId(null); }
+   138→  };
+   139→
+   140→  if (tenantsReq.loading) return <div className="space-y-4"><CardSkeletons count={3} /><Card className="p-5"><Skeleton className="h-40 w-full" /></Card></div>;
+   141→  if (tenantsReq.error || !tenantsReq.data) return <ErrorState message={tenantsReq.error || undefined} onReload={tenantsReq.reload} />;
+   142→
+   143→  return (
+   144→    <div className="space-y-4">
+   145→      {/* Header */}
+   146→      <SectionCard title="مدیریت موتور هوش مصنوعی" description="پیکربندی مدل/API اختصاصی برای کسب‌وکارها (فقط مدیر سیستم)">
+   147→        <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+   148→          <div className="grid place-items-center size-9 rounded-lg bg-primary/10 text-primary shrink-0">
+   149→            <Lock className="size-4" />
+   150→          </div>
+   151→          <div className="text-xs leading-6 text-muted-foreground">
+   152→            شما می‌توانید یک کسب‌وکار را انتخاب کنید تا ارائه‌دهنده‌های آن را ببینید و مدیریت کنید، یا با
+   153→            <strong className="text-foreground"> حالت چندتایی</strong> چند کسب‌وکار (یا همه) را انتخاب کرده و یک ارائه‌دهنده را
+   154→            یک‌باره برای همه آن‌ها ایجاد/فعال‌سازی/غیرفعال‌سازی/حذف کنید.
+   155→          </div>
+   156→        </div>
+   157→      </SectionCard>
+   158→
+   159→      {/* Mode toggle + tenant selection */}
+   160→      <Card className="p-4">
+   161→        <div className="flex flex-col gap-3">
+   162→          {/* Mode switch */}
+   163→          <div className="flex items-center gap-2 flex-wrap">
+   164→            <Button variant={bulkMode ? "outline" : "secondary"} size="sm" className="gap-1.5" onClick={() => { setBulkMode(false); clearSelection(); }}>
+   165→              <Building2 className="size-3.5" /> تک کسب‌وکار
+   166→            </Button>
+   167→            <Button variant={bulkMode ? "secondary" : "outline"} size="sm" className="gap-1.5" onClick={() => { setBulkMode(true); setSelectedTenant(""); }}>
+   168→              <Layers className="size-3.5" /> چند کسب‌وکار (دسته‌جمعی)
+   169→            </Button>
+   170→          </div>
+   171→
+   172→          {!bulkMode ? (
+   173→            /* Single-tenant selector */
+   174→            <div className="flex items-center gap-3 flex-wrap">
+   175→              <span className="text-sm font-medium shrink-0">کسب‌وکار:</span>
+   176→              <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+   177→                <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="انتخاب کنید" /></SelectTrigger>
+   178→                <SelectContent>
+   179→                  {tenants.map((t) => (
+   180→                    <SelectItem key={t.id} value={t.id}>
+   181→                      <span className="font-medium">{t.name}</span>
+   182→                      <span className="text-xs text-muted-foreground font-mono mr-2">{t.slug}</span>
+   183→                    </SelectItem>
+   184→                  ))}
+   185→                </SelectContent>
+   186→              </Select>
+   187→              {selectedTenantObj && <Badge variant="outline" className="text-xs">{toFa(providers.length)} ارائه‌دهنده</Badge>}
+   188→            </div>
+   189→          ) : (
+   190→            /* Multi-tenant selection */
+   191→            <div className="space-y-2">
+   192→              <div className="flex items-center justify-between gap-2 flex-wrap">
+   193→                <span className="text-sm font-medium">
+   194→                  {toFa(selectedTenants.size)} کسب‌وکار انتخاب‌شده
+   195→                </span>
+   196→                <div className="flex items-center gap-2">
+   197→                  <Button variant="outline" size="sm" className="gap-1.5" onClick={selectAllTenants}>
+   198→                    <CheckSquare className="size-3.5" /> انتخاب همه ({toFa(tenants.length)})
+   199→                  </Button>
+   200→                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={clearSelection} disabled={selectedTenants.size === 0}>
+   201→                    <Square className="size-3.5" /> پاک کردن
+   202→                  </Button>
+   203→                </div>
+   204→              </div>
+   205→              {/* Tenant checkboxes */}
+   206→              <div className="border rounded-lg max-h-48 overflow-y-auto scroll-area divide-y">
+   207→                {tenants.map((t) => (
+   208→                  <label key={t.id} className="flex items-center gap-3 p-2.5 hover:bg-accent/40 cursor-pointer">
+   209→                    <Checkbox checked={selectedTenants.has(t.id)} onCheckedChange={() => toggleTenant(t.id)} />
+   210→                    <div className="flex-1 min-w-0">
+   211→                      <div className="text-sm font-medium truncate">{t.name}</div>
+   212→                      <div className="text-xs text-muted-foreground font-mono">{t.slug}</div>
+   213→                    </div>
+   214→                  </label>
+   215→                ))}
+   216→              </div>
+   217→            </div>
+   218→          )}
+   219→        </div>
+   220→      </Card>
+   221→
+   222→      {/* Single-tenant view */}
+   223→      {!bulkMode && (
+   224→        <>
+   225→          {!selectedTenant ? (
+   226→            <InlineEmptyState icon={Building2} title="یک کسب‌وکار انتخاب کنید" description="برای مدیریت موتور هوش مصنوعی، یک کسب‌وکار را انتخاب کنید." />
+   227→          ) : providersReq.loading ? (
+   228→            <Card className="p-5"><Skeleton className="h-40 w-full" /></Card>
+   229→          ) : (
+   230→            <>
+   231→              {/* Active provider */}
+   232→              <Card className="p-5">
+   233→                <div className="flex items-center justify-between gap-3 flex-wrap">
+   234→                  <div className="flex items-center gap-3">
+   235→                    <div className={`grid place-items-center size-11 rounded-xl ${activeProviderId ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
+   236→                      <Cpu className="size-5" />
+   237→                    </div>
+   238→                    <div>
+   239→                      <div className="text-xs text-muted-foreground mb-0.5">موتور فعال {selectedTenantObj?.name}</div>
+   240→                      {activeProviderId ? (
+   241→                        <>
+   242→                          <div className="font-bold">{providers.find((p) => p.id === activeProviderId)?.name}</div>
+   243→                          <div className="text-xs text-muted-foreground">
+   244→                            {TYPE_LABELS[providers.find((p) => p.id === activeProviderId)?.type || ""] || ""} · {providers.find((p) => p.id === activeProviderId)?.model}
+   245→                          </div>
+   246→                        </>
+   247→                      ) : (
+   248→                        <>
+   249→                          <div className="font-bold">پلتفرم پیش‌فرض (Z.ai)</div>
+   250→                          <div className="text-xs text-muted-foreground">glm-4.6</div>
+   251→                        </>
+   252→                      )}
+   253→                    </div>
+   254→                  </div>
+   255→                  {activeProviderId && (
+   256→                    <Button variant="outline" size="sm" onClick={() => deactivateSingle(activeProviderId)} disabled={activatingId === activeProviderId} className="gap-1.5">
+   257→                      {activatingId === activeProviderId ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5" />}
+   258→                      بازگشت به پیش‌فرض
+   259→                    </Button>
+   260→                  )}
+   261→                </div>
+   262→              </Card>
+   263→
+   264→              {/* Providers list */}
+   265→              <SectionCard
+   266→                title="ارائه‌دهنده‌های پیکربندی‌شده"
+   267→                description={`مجموع ${toFa(providers.length)} ارائه‌دهنده برای ${selectedTenantObj?.name}`}
+   268→                action={
+   269→                  <Dialog open={singleDialogOpen} onOpenChange={setSingleDialogOpen}>
+   270→                    <Button size="sm" className="gap-1.5" onClick={() => setSingleDialogOpen(true)}>
+   271→                      <Plus className="size-4" /> افزودن
+   272→                    </Button>
+   273→                    <ProviderFormDialog
+   274→                      open={singleDialogOpen} onOpenChange={setSingleDialogOpen}
+   275→                      providerTypes={providerTypes}
+   276→                      title={`افزودن موتور برای ${selectedTenantObj?.name}`}
+   277→                      onSubmit={async (data) => {
+   278→                        await api("/api/ai-providers", { method: "POST", body: JSON.stringify({ tenantId: selectedTenant, ...data }) });
+   279→                        toast.success("افزوده شد."); setSingleDialogOpen(false); providersReq.reload();
+   280→                      }}
+   281→                    />
+   282→                  </Dialog>
+   283→                }
+   284→              >
+   285→                {providers.length === 0 ? (
+   286→                  <InlineEmptyState icon={Bot} title="هنوز ارائه‌دهنده‌ای نیست" description="اولین موتور هوش مصنوعی را اضافه کنید." />
+   287→                ) : (
+   288→                  <div className="space-y-3">
+   289→                    {providers.map((p) => {
+   290→                      const isActive = p.id === activeProviderId;
+   291→                      return (
+   292→                        <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl border ${isActive ? "border-primary bg-primary/5" : "border-border"}`}>
+   293→                          <div className={`grid place-items-center size-10 rounded-lg shrink-0 ${TYPE_COLORS[p.type] || "bg-muted"}`}>
+   294→                            <Bot className="size-5" />
+   295→                          </div>
+   296→                          <div className="min-w-0 flex-1">
+   297→                            <div className="flex items-center gap-2 flex-wrap">
+   298→                              <span className="font-medium text-sm">{p.name}</span>
+   299→                              <Badge variant="outline" className={`text-[10px] ${TYPE_COLORS[p.type]}`}>{TYPE_LABELS[p.type] || p.type}</Badge>
+   300→                              {isActive && <Badge className="text-[10px] gap-0.5"><CheckCircle2 className="size-2.5" /> فعال</Badge>}
+   301→                              {p.lastTestOk === true && <Badge variant="outline" className="text-[10px] gap-0.5 border-emerald-500/30 text-emerald-600"><CheckCircle2 className="size-2.5" /> تست موفق</Badge>}
+   302→                              {p.lastTestOk === false && <Badge variant="outline" className="text-[10px] gap-0.5 border-rose-500/30 text-rose-600"><XCircle className="size-2.5" /> تست ناموفق</Badge>}
+   303→                            </div>
+   304→                            <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+   305→                              <span className="font-mono">{p.model}</span>
+   306→                              {p.baseUrl && <span className="font-mono truncate max-w-[200px]" dir="ltr">{p.baseUrl}</span>}
+   307→                              {p.lastTestedAt && <span>· {formatDate(p.lastTestedAt)}</span>}
+   308→                            </div>
+   309→                          </div>
+   310→                          <div className="flex items-center gap-1.5 shrink-0">
+   311→                            <Button variant="outline" size="sm" className="gap-1.5" disabled={testingId === p.id} onClick={() => testProviderSingle(p.id)}>
+   312→                              {testingId === p.id ? <Loader2 className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+   313→                              <span className="hidden sm:inline">تست</span>
+   314→                            </Button>
+   315→                            {!isActive && (
+   316→                              <Button size="sm" className="gap-1.5" disabled={activatingId === p.id} onClick={() => activateSingle(p.id)}>
+   317→                                {activatingId === p.id ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5" />}
+   318→                                <span className="hidden sm:inline">فعال</span>
+   319→                              </Button>
+   320→                            )}
+   321→                            <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" disabled={deletingId === p.id} onClick={() => removeSingle(p.id)}>
+   322→                              {deletingId === p.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+   323→                            </Button>
+   324→                          </div>
+   325→                        </div>
+   326→                      );
+   327→                    })}
+   328→                  </div>
+   329→                )}
+   330→              </SectionCard>
+   331→            </>
+   332→          )}
+   333→        </>
+   334→      )}
+   335→
+   336→      {/* Bulk view */}
+   337→      {bulkMode && (
+   338→        <Card className="p-5">
+   339→          <div className="flex items-start gap-3 mb-4">
+   340→            <div className="grid place-items-center size-10 rounded-lg bg-primary/10 text-primary shrink-0">
+   341→              <Layers className="size-5" />
+   342→            </div>
+   343→            <div>
+   344→              <h3 className="font-semibold text-sm">عملیات دسته‌جمعی</h3>
+   345→              <p className="text-xs text-muted-foreground mt-0.5">
+   346→                یک ارائه‌دهنده را یک‌باره برای {toFa(selectedTenants.size)} کسب‌وکار انتخاب‌شده ایجاد، فعال‌سازی، غیرفعال‌سازی یا حذف کنید.
+   347→              </p>
+   348→            </div>
+   349→          </div>
+   350→
+   351→          {selectedTenants.size === 0 ? (
+   352→            <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+   353→              <AlertCircle className="size-4 shrink-0" />
+   354→              ابتدا حداقل یک کسب‌وکار را از لیست بالا انتخاب کنید.
+   355→            </div>
+   356→          ) : (
+   357→            <BulkActions
+   358→              tenantIds={[...selectedTenants]}
+   359→              providerTypes={providerTypes}
+   360→              onDone={() => { /* bulk ops don't need per-tenant reload */ }}
+   361→            />
+   362→          )}
+   363→        </Card>
+   364→      )}
+   365→    </div>
+   366→  );
+   367→}
+   368→
+   369→// ────────────────────────────────────────────────────────────
+   370→// Bulk actions component
+   371→// ────────────────────────────────────────────────────────────
+   372→function BulkActions({ tenantIds, providerTypes, onDone }: { tenantIds: string[]; providerTypes: ProviderTypeMeta[]; onDone: () => void }) {
+   373→  const [createOpen, setCreateOpen] = React.useState(false);
+   374→  const [busy, setBusy] = React.useState<string | null>(null);
+   375→
+   376→  const runBulk = async (action: string, extra: any = {}) => {
+   377→    setBusy(action);
+   378→    try {
+   379→      const res = await api<{ successCount: number; failCount: number }>("/api/ai-providers/bulk", {
+   380→        method: "POST",
+   381→        body: JSON.stringify({ action, tenantIds, ...extra }),
+   382→      });
+   383→      if (res.failCount === 0) {
+   384→        toast.success(`عملیات با موفقیت برای ${toFa(res.successCount)} کسب‌وکار انجام شد.`);
+   385→      } else {
+   386→        toast.warning(`${toFa(res.successCount)} موفق، ${toFa(res.failCount)} ناموفق.`);
+   387→      }
+   388→      onDone();
+   389→    } catch (e: any) {
+   390→      toast.error(e.message);
+   391→    } finally {
+   392→      setBusy(null);
+   393→    }
+   394→  };
+   395→
+   396→  return (
+   397→    <div className="grid sm:grid-cols-2 gap-3">
+   398→      {/* Create provider for all */}
+   399→      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+   400→        <Card className="p-4">
+   401→          <div className="flex items-center gap-2 mb-2">
+   402→            <Plus className="size-4 text-primary" />
+   403→            <h4 className="font-medium text-sm">ایجاد ارائه‌دهنده</h4>
+   404→          </div>
+   405→          <p className="text-xs text-muted-foreground mb-3 leading-5">
+   406→            یک ارائه‌دهنده جدید (با همان کلید و مدل) برای همه {toFa(tenantIds.length)} کسب‌وکار ایجاد کنید.
+   407→          </p>
+   408→          <Button className="w-full gap-1.5" onClick={() => setCreateOpen(true)} disabled={!!busy}>
+   409→            <Plus className="size-4" /> ایجاد دسته‌جمعی
+   410→          </Button>
+   411→        </Card>
+   412→        <ProviderFormDialog
+   413→          open={createOpen} onOpenChange={setCreateOpen}
+   414→          providerTypes={providerTypes}
+   415→          title={`ایجاد ارائه‌دهنده برای ${toFa(tenantIds.length)} کسب‌وکار`}
+   416→          submitLabel="ایجاد برای همه"
+   417→          onSubmit={async (data) => {
+   418→            await runBulk("create", data);
+   419→            setCreateOpen(false);
+   420→          }}
+   421→        />
+   422→      </Dialog>
+   423→
+   424→      {/* Deactivate all */}
+   425→      <Card className="p-4">
+   426→        <div className="flex items-center gap-2 mb-2">
+   427→          <Power className="size-4 text-amber-600" />
+   428→          <h4 className="font-medium text-sm">غیرفعال‌سازی همه</h4>
+   429→        </div>
+   430→        <p className="text-xs text-muted-foreground mb-3 leading-5">
+   431→          همه {toFa(tenantIds.length)} کسب‌وکار را به موتور پیش‌فرض پلتفرم (Z.ai) بازگردانید.
+   432→        </p>
+   433→        <Button variant="outline" className="w-full gap-1.5" onClick={() => runBulk("deactivate")} disabled={!!busy}>
+   434→          {busy === "deactivate" ? <Loader2 className="size-4 animate-spin" /> : <Power className="size-4" />}
+   435→          بازگشت همه به پیش‌فرض
+   436→        </Button>
+   437→      </Card>
+   438→    </div>
+   439→  );
+   440→}
+   441→
+   442→// ────────────────────────────────────────────────────────────
+   443→// Reusable provider form dialog (used for single + bulk create)
+   444→// ────────────────────────────────────────────────────────────
+   445→function ProviderFormDialog({
+   446→  open, onOpenChange, providerTypes, title, onSubmit, submitLabel,
+   447→}: {
+   448→  open: boolean; onOpenChange: (o: boolean) => void;
+   449→  providerTypes: ProviderTypeMeta[]; title: string;
+   450→  onSubmit: (data: { name: string; type: string; apiKey: string; baseUrl: string; model: string }) => Promise<void>;
+   451→  submitLabel?: string;
+   452→}) {
+   453→  const [type, setType] = React.useState("openai");
+   454→  const [name, setName] = React.useState("");
+   455→  const [apiKey, setApiKey] = React.useState("");
+   456→  const [baseUrl, setBaseUrl] = React.useState("");
+   457→  const [model, setModel] = React.useState("");
+   458→  const [submitting, setSubmitting] = React.useState(false);
+   459→  const [testing, setTesting] = React.useState(false);
+   460→
+   461→  const pt = providerTypes.find((p) => p.code === type);
+   462→
+   463→  React.useEffect(() => {
+   464→    if (pt) { if (!model) setModel(pt.defaultModel); if (!name) setName(pt.label); }
+   465→  }, [type]);
+   466→
+   467→  const reset = () => { setType("openai"); setName(""); setApiKey(""); setBaseUrl(""); setModel(""); };
+   468→
+   469→  const submit = async () => {
+   470→    if (!name.trim()) { toast.error("نام الزامی است"); return; }
+   471→    if (pt?.needsKey && !apiKey.trim()) { toast.error("کلید API الزامی است"); return; }
+   472→    if (pt?.needsBaseUrl && !baseUrl.trim()) { toast.error("Base URL الزامی است"); return; }
+   473→    setSubmitting(true);
+   474→    try {
+   475→      await onSubmit({ name: name.trim(), type, apiKey: apiKey.trim(), baseUrl: baseUrl.trim(), model: model.trim() || pt?.defaultModel || "" });
+   476→      reset();
+   477→    } catch (e: any) { toast.error(e.message); }
+   478→    finally { setSubmitting(false); }
+   479→  };
+   480→
+   481→  const testInline = async () => {
+   482→    if (pt?.needsKey && !apiKey.trim()) { toast.error("ابتدا کلید API را وارد کنید"); return; }
+   483→    setTesting(true);
+   484→    try {
+   485→      const res = await api<{ ok: boolean; reply: string; error?: string }>("/api/ai-providers/test", {
+   486→        method: "POST", body: JSON.stringify({ type, apiKey, baseUrl, model: model || pt?.defaultModel }),
+   487→      });
+   488→      if (res.ok) toast.success(`موفق! ${res.reply.slice(0, 50)}`);
+   489→      else toast.error(`ناموفق: ${res.error}`);
+   490→    } catch (e: any) { toast.error(e.message); }
+   491→    finally { setTesting(false); }
+   492→  };
+   493→
+   494→  return (
+   495→    <DialogContent className="max-w-lg" open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
+   496→      <DialogHeader>
+   497→        <DialogTitle className="flex items-center gap-2"><Plus className="size-4" /> {title}</DialogTitle>
+   498→        <DialogDescription>پیکربندی مدل یا API اختصاصی</DialogDescription>
+   499→      </DialogHeader>
+   500→      <div className="space-y-3 max-h-[60vh] overflow-y-auto scroll-area pl-1">
+   501→        <div className="space-y-1.5">
+   502→          <Label>نوع ارائه‌دهنده</Label>
+   503→          <Select value={type} onValueChange={setType}>
+   504→            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+   505→            <SelectContent>
+   506→              {providerTypes.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
+   507→            </SelectContent>
+   508→          </Select>
+   509→          {pt && <p className="text-xs text-muted-foreground leading-5">{pt.desc}</p>}
+   510→        </div>
+   511→        <div className="space-y-1.5">
+   512→          <Label>نام (نمایشی)</Label>
+   513→          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثلاً: OpenAI تولیدی" />
+   514→        </div>
+   515→        {pt?.needsKey && (
+   516→          <div className="space-y-1.5">
+   517→            <Label className="flex items-center gap-1.5"><Key className="size-3" /> کلید API</Label>
+   518→            <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" dir="ltr" placeholder="sk-..." className="font-mono text-left" />
+   519→          </div>
+   520→        )}
+   521→        {pt?.needsBaseUrl && (
+   522→          <div className="space-y-1.5">
+   523→            <Label className="flex items-center gap-1.5"><Globe className="size-3" /> Base URL</Label>
+   524→            <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} dir="ltr" placeholder="https://your-endpoint/v1" className="font-mono text-left" />
+   525→          </div>
+   526→        )}
+   527→        <div className="space-y-1.5">
+   528→          <Label className="flex items-center gap-1.5"><Cpu className="size-3" /> شناسه مدل</Label>
+   529→          <Input value={model} onChange={(e) => setModel(e.target.value)} dir="ltr" placeholder={pt?.defaultModel} className="font-mono text-left" />
+   530→          {pt && <p className="text-[10px] text-muted-foreground">پیشنهاد: {pt.defaultModel}</p>}
+   531→        </div>
+   532→      </div>
+   533→      <DialogFooter className="gap-2 sm:gap-2">
+   534→        <Button variant="outline" onClick={testInline} disabled={testing} className="gap-1.5">
+   535→          {testing ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
+   536→          تست اتصال
+   537→        </Button>
+   538→        <Button onClick={submit} disabled={submitting} className="gap-1.5">
+   539→          {submitting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+   540→          {submitLabel || "افزودن"}
+   541→        </Button>
+   542→      </DialogFooter>
+   543→    </DialogContent>
+   544→  );
+   545→}
+   546→
