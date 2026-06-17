@@ -22,6 +22,7 @@ import { AdminRevenue } from "./revenue";
 import { AdminTokens } from "./tokens";
 import { AdminLeads } from "./leads";
 import { AdminPayments } from "./payments";
+import { AdminAiProviders } from "./ai-providers";
 
 const NAV = [
   { key: "overview", label: "نمای کلی", icon: LayoutDashboard, title: "نمای کلی پلتفرم" },
@@ -31,6 +32,7 @@ const NAV = [
   { key: "plans", label: "تعرفه‌ها", icon: CreditCard, title: "مدیریت تعرفه و پلن‌ها" },
   { key: "revenue", label: "درآمد", icon: Wallet, title: "تحلیل درآمد پلتفرم" },
   { key: "tokens", label: "توکن‌ها", icon: Cpu, title: "مصرف توکن هوش مصنوعی" },
+  { key: "ai-providers", label: "موتور هوش مصنوعی", icon: Cpu, title: "مدیریت مدل‌ها و APIهای هوش مصنوعی" },
 ] as const;
 
 export function AdminView() {
@@ -214,6 +216,7 @@ export function AdminView() {
             {adminTab === "plans" && <AdminPlans />}
             {adminTab === "revenue" && <AdminRevenue />}
             {adminTab === "tokens" && <AdminTokens />}
+            {adminTab === "ai-providers" && <AdminAiProviders />}
           </motion.div>
         </main>
       </div>

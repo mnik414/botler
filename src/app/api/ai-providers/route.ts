@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/auth";
 import { testProvider, PROVIDER_TYPES, defaultBaseUrl } from "@/lib/llm-providers";
 
-// GET /api/ai-providers?tenantId=... — list a tenant's configured AI providers
+// GET /api/ai-providers?tenantId=... — list a tenant's configured AI providers (read-only, any logged-in user)
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const tenantId = searchParams.get("tenantId");
@@ -15,16 +16,18 @@ export async function GET(req: Request) {
       id: true, tenantId: true, name: true, type: true, baseUrl: true,
       model: true, isActive: true, lastTestedAt: true, lastTestOk: true,
       createdAt: true, updatedAt: true,
-      // apiKey intentionally omitted from list for safety; only return a masked hint
+      // apiKey intentionally omitted from list for safety
     },
   });
-  // Also include the agent's currently active provider id
   const agent = await db.agent.findUnique({ where: { tenantId }, select: { aiProviderId: true } });
   return NextResponse.json({ providers, activeProviderId: agent?.aiProviderId || null, providerTypes: PROVIDER_TYPES });
 }
 
-// POST /api/ai-providers — create a new provider config
+// POST /api/ai-providers — create a new provider config (SUPER ADMIN ONLY)
 export async function POST(req: Request) {
+  const auth = await requireRole(req, ["super_admin"]);
+  if (auth instanceof Response) return auth; // 403
+
   const body = await req.json();
   const { tenantId, name, type, apiKey, baseUrl, model } = body;
   if (!tenantId || !name || !type) {

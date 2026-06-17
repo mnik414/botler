@@ -1,25 +1,30 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/auth";
 
-// DELETE /api/ai-providers/[id]?tenantId=... — delete a provider (tenant-scoped)
+// DELETE /api/ai-providers/[id]?tenantId=... — SUPER ADMIN ONLY
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(req, ["super_admin"]);
+  if (auth instanceof Response) return auth;
+
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const tenantId = searchParams.get("tenantId");
   if (!tenantId) return NextResponse.json({ error: "tenantId required" }, { status: 400 });
 
-  // Verify ownership
   const provider = await db.aiProvider.findFirst({ where: { id, tenantId } });
   if (!provider) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  // If this provider is active on the agent, detach it first
   await db.agent.updateMany({ where: { tenantId, aiProviderId: id }, data: { aiProviderId: null } });
   await db.aiProvider.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
 
-// PATCH /api/ai-providers/[id]?tenantId=... — update provider fields OR activate it
+// PATCH /api/ai-providers/[id]?tenantId=... — SUPER ADMIN ONLY (update + activate/deactivate)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(req, ["super_admin"]);
+  if (auth instanceof Response) return auth;
+
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const tenantId = searchParams.get("tenantId");
@@ -34,7 +39,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (k in body) data[k] = body[k];
   }
 
-  // Special action: activate this provider as the tenant's agent provider
   if (body.activate === true) {
     await db.agent.update({ where: { tenantId }, data: { aiProviderId: id } });
     return NextResponse.json({ ok: true, active: true });
