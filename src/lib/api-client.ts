@@ -1,0 +1,163 @@
+// Client-side API helpers
+import type { ChatMessage, RagSource } from "@/lib/types";
+
+export async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || "خطای سرور");
+  }
+  return res.json();
+}
+
+export interface Session {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  avatarUrl?: string;
+  tenant: { id: string; slug: string; name: string; businessType: string; accentColor: string } | null;
+}
+
+export interface Plan {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  priceMonthly: number;
+  messageLimit: number;
+  conversationLimit: number;
+  voiceMinutes: number;
+  tokenLimit: number;
+  features: string[];
+  popular: boolean;
+}
+
+export interface MarketplaceItem {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  businessType: string;
+  businessTypeLabel: string;
+  icon: string;
+  category: string;
+  accentColor: string;
+  instagram: string;
+  phone: string;
+  address: string;
+}
+
+export interface KnowledgeItem {
+  id: string;
+  tenantId: string;
+  type: string;
+  title: string;
+  content: string;
+  question: string;
+  url: string;
+  status: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  tenantId: string;
+  endUserName: string;
+  endUserPhone: string;
+  channel: string;
+  status: string;
+  confidence: number;
+  satisfaction: number;
+  messageCount: number;
+  leadCaptured: boolean;
+  createdAt: string;
+  updatedAt: string;
+  messages?: (ChatMessage & { id: string })[];
+}
+
+export interface Lead {
+  id: string;
+  tenantId: string;
+  conversationId: string | null;
+  name: string;
+  phone: string;
+  email: string;
+  source: string;
+  intent: string;
+  status: string;
+  value: number;
+  createdAt: string;
+  conversation?: { id: string; channel: string } | null;
+}
+
+export interface AgentConfig {
+  id: string;
+  tenantId: string;
+  name: string;
+  systemPrompt: string;
+  model: string;
+  temperature: number;
+  confidenceThreshold: number;
+  greetingMessage: string;
+  channels: string[];
+  voiceEnabled: boolean;
+  humanHandoff: boolean;
+  growthLoop: boolean;
+}
+
+export interface Analytics {
+  tenant: any;
+  subscription: any;
+  kpis: {
+    totalConversations: number;
+    totalLeads: number;
+    convertedLeads: number;
+    conversionRate: number;
+    handoffCount: number;
+    avgConfidence: number;
+    avgSatisfaction: number;
+    totalTokens: number;
+    revenue: number;
+    internalLeads: number;
+  };
+  usage: any;
+  trends: { date: string; conversations: number; leads: number }[];
+  channels: { channel: string; count: number }[];
+  leadsByStatus: { status: string; count: number }[];
+  analysis: any;
+}
+
+export interface AdminStats {
+  kpis: {
+    totalTenants: number;
+    activeTenants: number;
+    totalUsers: number;
+    totalConversations: number;
+    totalLeads: number;
+    totalInternalLeads: number;
+    mrr: number;
+    totalRevenue: number;
+    totalTokens: number;
+  };
+  plans: { plan: string; code: string; count: number; revenue: number }[];
+  topTenants: { id: string; name: string; slug: string; plan: string; status: string; createdAt: string; mrr: number; tokens: number }[];
+  revenueTrend: { date: string; revenue: number; conversations: number }[];
+  tokenUsageByTenant: { name: string; tokens: number }[];
+}
+
+export interface ChatResponse {
+  conversationId: string;
+  reply: string;
+  confidence: number;
+  sources: RagSource[];
+  handoff: boolean;
+  lead: { name?: string; phone?: string; email?: string; detected: boolean };
+  growth: { isBusinessOwner: boolean; score: number; signals: string[] };
+  leadCreated: { id: string; name: string } | null;
+  tokens: number;
+}
