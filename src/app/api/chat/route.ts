@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { runReceptionist } from "@/lib/ai-engine";
+import { runReceptionist, detectBooking } from "@/lib/ai-engine";
 import type { ChatMessage } from "@/lib/types";
 
 // POST /api/chat
@@ -17,9 +17,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "tenant or agent not found" }, { status: 404 });
     }
 
-    // Ensure conversation exists
+    // Ensure conversation exists — MUST be scoped to the same tenant (isolation)
     let convo = conversationId
-      ? await db.conversation.findUnique({ where: { id: conversationId } })
+      ? await db.conversation.findFirst({ where: { id: conversationId, tenantId } })
       : null;
     if (!convo) {
       convo = await db.conversation.create({
@@ -95,6 +95,35 @@ export async function POST(req: Request) {
       await db.conversation.update({ where: { id: convo.id }, data: { status: "handoff", confidence: result.confidence } });
     }
 
+    // Booking / sales intent detection → create a Booking record
+    let bookingCreated = null;
+    const booking = detectBooking(message);
+    if (booking.detected && booking.type) {
+      const bookingLabels: Record<string, string> = {
+        order: "سفارش",
+        reservation: "رزرو",
+        appointment: "نوبت",
+        callback: "درخواست تماس",
+      };
+      const bookingRecord = await db.booking.create({
+        data: {
+          tenantId,
+          conversationId: convo.id,
+          leadId: leadCreated?.id || null,
+          type: booking.type,
+          payloadJson: JSON.stringify({
+            details: booking.details,
+            label: bookingLabels[booking.type],
+            endUserName: result.lead.name || "مهمان",
+            endUserPhone: result.lead.phone || "",
+            capturedAt: new Date().toISOString(),
+          }),
+          status: "pending",
+        },
+      });
+      bookingCreated = { id: bookingRecord.id, type: booking.type, label: bookingLabels[booking.type] };
+    }
+
     // Growth-loop internal lead
     if (result.growth.isBusinessOwner) {
       const ex = await db.internalLead.findFirst({
@@ -129,6 +158,7 @@ export async function POST(req: Request) {
       lead: result.lead,
       growth: result.growth,
       leadCreated: leadCreated ? { id: leadCreated.id, name: leadCreated.name } : null,
+      bookingCreated,
       tokens: result.tokens,
     });
   } catch (e: any) {

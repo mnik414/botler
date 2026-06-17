@@ -77,7 +77,7 @@ export function LeadsTab({ tenantId }: { tenantId: string }) {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      await api(`/api/leads/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      await api(`/api/leads/${id}?tenantId=${tenantId}`, { method: "PATCH", body: JSON.stringify({ status }) });
       toast.success("وضعیت به‌روزرسانی شد.");
       reload();
     } catch (e: any) {

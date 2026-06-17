@@ -14,7 +14,8 @@ export type View =
   | "operator"
   | "widget-demo"
   | "business" // public business profile (subdomain experience)
-  | "referral"; // referral landing page
+  | "referral" // referral landing page
+  | "track"; // end-user request tracking
 
 interface AppState {
   view: View;

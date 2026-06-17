@@ -159,5 +159,6 @@ export interface ChatResponse {
   lead: { name?: string; phone?: string; email?: string; detected: boolean };
   growth: { isBusinessOwner: boolean; score: number; signals: string[] };
   leadCreated: { id: string; name: string } | null;
+  bookingCreated: { id: string; type: string; label: string } | null;
   tokens: number;
 }

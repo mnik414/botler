@@ -10,6 +10,7 @@ import { LoginPage } from "@/components/public/login";
 import { SignupPage } from "@/components/public/signup";
 import { BusinessProfilePage } from "@/components/public/business-profile";
 import { ReferralPage } from "@/components/public/referral";
+import { TrackRequestPage } from "@/components/public/track-request";
 import { DashboardView } from "@/components/dashboard";
 import { AdminView } from "@/components/admin";
 import { OperatorView } from "@/components/operator";
@@ -94,8 +95,8 @@ export default function Home() {
     );
   }
 
-  const isPublic = ["landing", "marketplace", "pricing", "login", "signup", "widget-demo", "business", "referral"].includes(view);
-  const showFloating = isPublic && view !== "widget-demo" && view !== "business" && view !== "referral" && (activeTenantId || session?.tenant?.id);
+  const isPublic = ["landing", "marketplace", "pricing", "login", "signup", "widget-demo", "business", "referral", "track"].includes(view);
+  const showFloating = isPublic && view !== "widget-demo" && view !== "business" && view !== "referral" && view !== "track" && (activeTenantId || session?.tenant?.id);
 
   return (
     <>
@@ -115,6 +116,7 @@ export default function Home() {
           {view === "widget-demo" && <WidgetDemoPage />}
           {view === "business" && <BusinessProfilePage />}
           {view === "referral" && <ReferralPage />}
+          {view === "track" && <TrackRequestPage />}
         </PublicShell>
       ) : (
         <PublicShell>

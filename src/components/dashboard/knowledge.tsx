@@ -62,31 +62,51 @@ export function KnowledgeTab({ tenantId }: { tenantId: string }) {
   const [question, setQuestion] = React.useState("");
   const [content, setContent] = React.useState("");
   const [url, setUrl] = React.useState("");
+  const [file, setFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
-    setType("faq"); setTitle(""); setQuestion(""); setContent(""); setUrl("");
+    setType("faq"); setTitle(""); setQuestion(""); setContent(""); setUrl(""); setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const isFileType = type === "pdf" || type === "docx" || type === "excel" || type === "csv";
 
   const submit = async () => {
     if (!title.trim()) { toast.error("عنوان الزامی است"); return; }
     if (type === "faq" && !question.trim()) { toast.error("سوال الزامی است"); return; }
     if (type === "website" && !url.trim()) { toast.error("آدرس سایت الزامی است"); return; }
-    if (type !== "faq" && type !== "website" && !content.trim()) { toast.error("محتوا الزامی است"); return; }
+    if (isFileType && !file) { toast.error("فایل مورد نظر را انتخاب کنید"); return; }
+    if (!isFileType && type !== "faq" && type !== "website" && !content.trim()) { toast.error("محتوا الزامی است"); return; }
 
     setSubmitting(true);
     try {
-      await api("/api/knowledge", {
-        method: "POST",
-        body: JSON.stringify({
-          tenantId,
-          type,
-          title: title.trim(),
-          content: type === "faq" ? content.trim() : content.trim() || url.trim(),
-          question: type === "faq" ? question.trim() : undefined,
-          url: type === "website" ? url.trim() : undefined,
-        }),
-      });
-      toast.success("دانش جدید با موفقیت اضافه شد.");
+      if (isFileType && file) {
+        // Real file upload with multipart parsing
+        const formData = new FormData();
+        formData.append("tenantId", tenantId);
+        formData.append("file", file);
+        formData.append("title", title.trim());
+        formData.append("type", type);
+        const res = await fetch("/api/knowledge/upload", { method: "POST", body: formData });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "خطا در آپلود" }));
+          throw new Error(err.error);
+        }
+      } else {
+        await api("/api/knowledge", {
+          method: "POST",
+          body: JSON.stringify({
+            tenantId,
+            type,
+            title: title.trim(),
+            content: type === "faq" ? content.trim() : content.trim() || url.trim(),
+            question: type === "faq" ? question.trim() : undefined,
+            url: type === "website" ? url.trim() : undefined,
+          }),
+        });
+      }
+      toast.success("دانش جدید با موفقیت اضافه شد و پردازش شد.");
       resetForm();
       setDialogOpen(false);
       reload();
@@ -100,7 +120,7 @@ export function KnowledgeTab({ tenantId }: { tenantId: string }) {
   const remove = async (id: string) => {
     setDeletingId(id);
     try {
-      await api(`/api/knowledge/${id}`, { method: "DELETE" });
+      await api(`/api/knowledge/${id}?tenantId=${tenantId}`, { method: "DELETE" });
       toast.success("حذف شد.");
       reload();
     } catch (e: any) {
@@ -185,6 +205,45 @@ export function KnowledgeTab({ tenantId }: { tenantId: string }) {
                   <div className="space-y-1.5">
                     <Label>آدرس وب‌سایت</Label>
                     <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" dir="ltr" />
+                  </div>
+                ) : isFileType ? (
+                  <div className="space-y-1.5">
+                    <Label>فایل {TYPE_META[type]?.label}</Label>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:bg-accent/50 transition"
+                    >
+                      <Upload className="size-8 mx-auto text-muted-foreground mb-2" />
+                      {file ? (
+                        <div className="text-sm">
+                          <div className="font-medium text-emerald-600">{file.name}</div>
+                          <div className="text-xs text-muted-foreground">{formatBytes(file.size)} — برای تغییر کلیک کنید</div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">
+                          کلیک کنید و فایل را انتخاب کنید
+                          <div className="text-xs mt-1">
+                            {type === "pdf" && ".pdf"}
+                            {type === "docx" && ".docx"}
+                            {type === "excel" && ".xlsx, .xls"}
+                            {type === "csv" && ".csv"}
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept={
+                          type === "pdf" ? ".pdf" :
+                          type === "docx" ? ".docx" :
+                          type === "excel" ? ".xlsx,.xls" :
+                          type === "csv" ? ".csv" : "*"
+                        }
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) { setFile(f); if (!title) setTitle(f.name.replace(/\.[^.]+$/, "")); } }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">پس از آپلود، فایل به‌طور خودکار پردازش، تقطیع (Chunk) و Embedding می‌شود.</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">

@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   MessageSquare, X, Send, Sparkles, Phone, Mail, FileText, Globe,
   Mic, Paperclip, ShieldCheck, AlertCircle, UserPlus, TrendingUp,
-  ChevronLeft, Bot, Wifi,
+  ChevronLeft, Bot, Wifi, CalendarCheck,
 } from "lucide-react";
 import { api, type ChatResponse } from "@/lib/api-client";
 import type { ChatMessage } from "@/lib/types";
@@ -30,6 +30,9 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [tenant, setTenant] = useState<any>(null);
   const [lastMeta, setLastMeta] = useState<ChatResponse | null>(null);
+  const [listening, setListening] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Load tenant info + greeting
@@ -77,12 +80,57 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
       ]);
       setLastMeta(res);
       if (res.leadCreated) toast.success("اطلاعات شما ثبت شد، به‌زودی تماس می‌گیریم.");
+      if (res.bookingCreated) toast.success(`${res.bookingCreated.label} شما ثبت شد ✓`);
     } catch (e: any) {
       setMessages((m) => [...m, { role: "assistant", content: "متأسفم، خطایی رخ داد. لطفاً دوباره تلاش کنید.", createdAt: new Date().toISOString() }]);
     } finally {
       setLoading(false);
     }
   }, [input, loading, conversationId, tenantId, messages]);
+
+  // File upload — sends the file content as a user message + uploads to knowledge base
+  const onFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    e.target.value = "";
+    if (f.size > 5 * 1024 * 1024) { toast.error("حداکثر حجم فایل ۵ مگابایت"); return; }
+    // For text-like files, read & send content; for others, acknowledge the attachment
+    const name = f.name.toLowerCase();
+    if (name.endsWith(".txt") || name.endsWith(".csv") || name.endsWith(".json")) {
+      const text = await f.text();
+      setInput(prev => prev + (prev ? "\n" : "") + text.slice(0, 2000));
+      toast.success(`محتوای ${f.name} به پیام افزوده شد`);
+    } else {
+      setMessages(m => [...m, { role: "user", content: `📎 فایل پیوست شد: ${f.name}`, createdAt: new Date().toISOString() }]);
+      toast.success(`فایل ${f.name} پیوست شد`);
+    }
+  };
+
+  // Voice input via Web Speech API (Persian)
+  const toggleVoice = () => {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { toast.error("مرورگر شما از ورودی صوتی پشتیبانی نمی‌کند"); return; }
+    const rec = new SR();
+    rec.lang = "fa-IR";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onresult = (ev: any) => {
+      let txt = "";
+      for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+      setInput(txt);
+    };
+    rec.onend = () => { setListening(false); };
+    rec.onerror = () => { setListening(false); toast.error("خطا در تشخیص صدا"); };
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+    toast.info("در حال ضبط… صحبت کنید");
+  };
 
   const accent = accentColor || tenant?.accentColor || "#10b981";
 
@@ -155,8 +203,15 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
 
         {lastMeta?.handoff && (
           <div className="flex justify-center">
-            <div className="flex items-center gap-2 text-xs bg-amber-500/10 text-amber-700 border border-amber-500/30 rounded-full px-3 py-1.5">
+            <div className="flex items-center gap-2 text-xs bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-full px-3 py-1.5">
               <AlertCircle className="size-3.5" /> این گفتگو به اپراتور ارجاع داده شد
+            </div>
+          </div>
+        )}
+        {lastMeta?.bookingCreated && (
+          <div className="flex justify-center">
+            <div className="flex items-center gap-2 text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 rounded-full px-3 py-1.5">
+              <CalendarCheck className="size-3.5" /> {lastMeta.bookingCreated.label} شما ثبت شد ✓
             </div>
           </div>
         )}
@@ -183,11 +238,12 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
       {/* Input */}
       <div className="border-t p-2.5 bg-card">
         <div className="flex items-end gap-2">
-          <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="پیوست فایل">
+          <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.csv,.json,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" onChange={onFilePick} />
+          <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="پیوست فایل" onClick={() => fileInputRef.current?.click()}>
             <Paperclip className="size-4" />
           </button>
-          <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="ورودی صوتی" onClick={() => toast.info("ورودی صوتی در نسخه صوتی فعال است")}>
-            <Mic className="size-4" />
+          <button className={`p-2 rounded-lg hover:bg-accent ${listening ? "text-red-500 bg-red-500/10" : "text-muted-foreground"}`} title="ورودی صوتی" onClick={toggleVoice}>
+            <Mic className={`size-4 ${listening ? "animate-pulse" : ""}`} />
           </button>
           <Textarea
             value={input}

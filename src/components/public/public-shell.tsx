@@ -17,6 +17,7 @@ const NAV = [
   { key: "landing", label: "خانه" },
   { key: "marketplace", label: "بازار کسب‌وکارها" },
   { key: "pricing", label: "پلن‌ها" },
+  { key: "track", label: "پیگیری درخواست" },
 ] as const;
 
 export function PublicShell({ children }: { children: React.ReactNode }) {

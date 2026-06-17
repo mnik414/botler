@@ -138,6 +138,34 @@ export function detectGrowth(message: string): GrowthSignal {
 }
 
 // ────────────────────────────────────────────────────────────
+// Booking / Sales intent detection (order, reservation, appointment, callback)
+// ────────────────────────────────────────────────────────────
+const BOOKING_PATTERNS: { type: string; keywords: string[] }[] = [
+  { type: "order", keywords: ["سفارش", "خرید", "می‌خوام بخرم", "ثبت سفارش", "افزودن به سبد", "لطفا برام بفرست"] },
+  { type: "reservation", keywords: ["رزرو", "میز رزرو", "اتاق رزرو", "رزرو کن", "میخوام رزرو", "رزرو میز", "رزرو اتاق"] },
+  { type: "appointment", keywords: ["نوبت", "وقت", "نوبت بگیر", "وقت بگیر", "ویزیت", "نوبت دهی", "وقت ویزیت"] },
+  { type: "callback", keywords: ["تماس بگیرید", "تماس بگیر", "زنگ بزنید", "تماس من", "با من تماس", "شماره منو یادت", "بعدا تماس", "درخواست تماس"] },
+];
+
+export interface BookingDetection {
+  type: string | null;
+  details: string;
+  detected: boolean;
+}
+
+export function detectBooking(message: string): BookingDetection {
+  const lower = message.toLowerCase();
+  for (const p of BOOKING_PATTERNS) {
+    for (const kw of p.keywords) {
+      if (lower.includes(kw.toLowerCase())) {
+        return { type: p.type, details: message.slice(0, 500), detected: true };
+      }
+    }
+  }
+  return { type: null, details: "", detected: false };
+}
+
+// ────────────────────────────────────────────────────────────
 // The AI Receptionist chat engine — combines RAG + LLM + lead/growth
 // ────────────────────────────────────────────────────────────
 export async function runReceptionist(opts: {

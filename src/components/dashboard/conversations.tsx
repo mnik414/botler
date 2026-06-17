@@ -133,8 +133,8 @@ export function ConversationsTab({ tenantId }: { tenantId: string }) {
 
 function ConversationDetail({ conversation, onReply }: { conversation: Conversation; onReply: () => void }) {
   const { data: messages, loading, error, reload } = useAsync<ExtendedMessage[]>(
-    () => api(`/api/conversations/${conversation.id}/messages`),
-    [conversation.id]
+    () => api(`/api/conversations/${conversation.id}/messages?tenantId=${conversation.tenantId}`),
+    [conversation.id, conversation.tenantId]
   );
   const [reply, setReply] = React.useState("");
   const [sending, setSending] = React.useState(false);
@@ -152,7 +152,7 @@ function ConversationDetail({ conversation, onReply }: { conversation: Conversat
     try {
       await api("/api/conversations", {
         method: "POST",
-        body: JSON.stringify({ conversationId: conversation.id, content: text }),
+        body: JSON.stringify({ conversationId: conversation.id, content: text, tenantId: conversation.tenantId }),
       });
       setReply("");
       toast.success("پاسخ شما ارسال شد.");

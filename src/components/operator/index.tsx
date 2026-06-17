@@ -116,7 +116,7 @@ export function OperatorView() {
     }
     let active = true;
     setLoadingMsg(true);
-    api<ConvMessage[]>(`/api/conversations/${selectedId}/messages`)
+    api<ConvMessage[]>(`/api/conversations/${selectedId}/messages?tenantId=${tenantId}`)
       .then((m) => {
         if (active) setMessages(m);
       })
@@ -156,7 +156,7 @@ export function OperatorView() {
     try {
       await api("/api/conversations", {
         method: "POST",
-        body: JSON.stringify({ conversationId: selectedId, content: text, operatorName: session?.name }),
+        body: JSON.stringify({ conversationId: selectedId, content: text, tenantId, operatorName: session?.name }),
       });
       setAnswered((a) => ({ ...a, [selectedId]: true }));
       setHandledToday((n) => n + 1);
