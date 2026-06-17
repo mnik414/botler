@@ -54,11 +54,11 @@ export function AdminRevenue() {
                   <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={3} />
               <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatCompact(v)} />
               <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)" }}
                 formatter={(v: any) => [formatToman(v), "درآمد"]}
                 labelFormatter={(l) => "تاریخ: " + l}
               />
@@ -73,11 +73,11 @@ export function AdminRevenue() {
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={byPlan} margin={{ top: 6, right: 6, left: 6, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatCompact(v)} />
               <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)" }}
                 formatter={(v: any) => [formatToman(v), "درآمد"]}
               />
               <Bar dataKey="revenue" radius={[6, 6, 0, 0]} barSize={60}>

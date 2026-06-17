@@ -11,7 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  LayoutDashboard, Building2, CreditCard, Wallet, Cpu, Sparkles, LogOut, Menu, ShieldAlert, Moon, Sun, ChevronLeft,
+  LayoutDashboard, Building2, CreditCard, Wallet, Cpu, Sparkles, LogOut, Menu, ShieldAlert, Moon, Sun, ChevronLeft, UserPlus, Receipt,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
@@ -20,10 +20,14 @@ import { AdminTenants } from "./tenants";
 import { AdminPlans } from "./plans";
 import { AdminRevenue } from "./revenue";
 import { AdminTokens } from "./tokens";
+import { AdminLeads } from "./leads";
+import { AdminPayments } from "./payments";
 
 const NAV = [
   { key: "overview", label: "نمای کلی", icon: LayoutDashboard, title: "نمای کلی پلتفرم" },
   { key: "tenants", label: "کسب‌وکارها", icon: Building2, title: "مدیریت کسب‌وکارها" },
+  { key: "leads", label: "لیدها", icon: UserPlus, title: "لیدهای جذب‌شده در کل پلتفرم" },
+  { key: "payments", label: "پرداخت‌ها", icon: Receipt, title: "مدیریت صورتحساب و پرداخت‌ها" },
   { key: "plans", label: "تعرفه‌ها", icon: CreditCard, title: "مدیریت تعرفه و پلن‌ها" },
   { key: "revenue", label: "درآمد", icon: Wallet, title: "تحلیل درآمد پلتفرم" },
   { key: "tokens", label: "توکن‌ها", icon: Cpu, title: "مصرف توکن هوش مصنوعی" },
@@ -205,6 +209,8 @@ export function AdminView() {
           >
             {adminTab === "overview" && <AdminOverview />}
             {adminTab === "tenants" && <AdminTenants />}
+            {adminTab === "leads" && <AdminLeads />}
+            {adminTab === "payments" && <AdminPayments />}
             {adminTab === "plans" && <AdminPlans />}
             {adminTab === "revenue" && <AdminRevenue />}
             {adminTab === "tokens" && <AdminTokens />}

@@ -57,7 +57,7 @@ export function AdminTokens() {
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={tokenData} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.6} horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => formatCompact(v)} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={110} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: any) => [formatNumber(v) + " توکن", "مصرف"]} />

@@ -66,11 +66,11 @@ export function AdminOverview() {
                     <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={4} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => formatCompact(v)} />
                 <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)" }}
                   formatter={(v: any) => [formatToman(v), "درآمد"]}
                   labelFormatter={(l) => "تاریخ: " + l}
                 />
@@ -115,10 +115,10 @@ export function AdminOverview() {
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={tokenData} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.6} horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => formatCompact(v)} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={110} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: any) => [formatNumber(v) + " توکن", "مصرف"]} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)" }} formatter={(v: any) => [formatNumber(v) + " توکن", "مصرف"]} />
               <Bar dataKey="tokens" radius={[0, 6, 6, 0]} fill="#14b8a6" barSize={18} />
             </BarChart>
           </ResponsiveContainer>
