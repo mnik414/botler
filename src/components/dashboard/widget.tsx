@@ -64,14 +64,14 @@ export function WidgetTab({ tenantId }: { tenantId: string }) {
   if (loading) return <LoadingBlock lines={4} />;
   if (error || !tenant) return <ErrorBlock message={error || undefined} onRetry={reload} />;
 
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://your-platform.com";
   const embedCode = `<!-- منشی هوشمند ${tenant.name} -->
-<script src="https://cdn.receptionist.ai/widget.js" async></script>
+<script src="${origin}/widget.js" async></script>
 <script>
-  window.AIReceptionist = window.AIReceptionist || [];
   AIReceptionist.init({
     tenantId: "${tenantId}",
-    accent: "${accent}",
-    position: "bottom-left"
+    accentColor: "${accent}",
+    position: "left"
   });
 </script>`;
 

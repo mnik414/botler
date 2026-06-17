@@ -25,9 +25,13 @@ export function WidgetDemoPage() {
 
   const embedCode = selected
     ? `<!-- منشی هوشمند ${selected.name} -->
-<script src="https://cdn.receptionist.ai/widget.js"></script>
+<script src="${typeof window !== "undefined" ? window.location.origin : "https://your-platform.com"}/widget.js"></script>
 <script>
-  AIReceptionist.init({ tenantId: "${selected.id}" });
+  AIReceptionist.init({
+    tenantId: "${selected.id}",
+    accentColor: "${selected.accentColor}",
+    position: "left"
+  });
 </script>`
     : "";
 

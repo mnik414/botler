@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Gift, Copy, MousePointerClick, UserPlus, Coins, TrendingUp,
-  Sparkles, Share2, Loader2, CheckCircle2,
+  Sparkles, Share2, Loader2, CheckCircle2, ExternalLink,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { formatToman, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
+import { useApp } from "@/store/app-store";
 import { SectionCard, LoadingBlock, ErrorBlock, useAsync, KpiCard } from "./shared";
 
 interface ReferralData {
@@ -25,6 +26,7 @@ export function ReferralTab({ tenantId }: { tenantId: string }) {
   const { data, loading, error, reload } = useAsync<ReferralData>(() => api(`/api/referral/${tenantId}`), [tenantId]);
   const [copied, setCopied] = React.useState(false);
   const [busy, setBusy] = React.useState<"click" | "signup" | null>(null);
+  const { setReferralCode, setView } = useApp();
 
   const recordEvent = async (event: "click" | "signup") => {
     setBusy(event);
@@ -97,6 +99,9 @@ export function ReferralTab({ tenantId }: { tenantId: string }) {
               <Input value={link} readOnly dir="ltr" className="text-xs" />
               <Button variant="outline" size="icon" onClick={copyLink}>
                 <Copy className="size-4" />
+              </Button>
+              <Button variant="outline" size="icon" title="پیش‌نمایش صفحه فرود" onClick={() => { setReferralCode(data.code); setView("referral"); }}>
+                <ExternalLink className="size-4" />
               </Button>
             </div>
           </div>

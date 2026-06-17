@@ -12,13 +12,16 @@ export type View =
   | "dashboard" // business owner
   | "admin" // super admin
   | "operator"
-  | "widget-demo";
+  | "widget-demo"
+  | "business" // public business profile (subdomain experience)
+  | "referral"; // referral landing page
 
 interface AppState {
   view: View;
   session: Session | null;
   activeTenantId: string | null;
   activeTenantSlug: string | null;
+  referralCode: string | null;
   seeded: boolean;
   dashboardTab: string;
   adminTab: string;
@@ -27,6 +30,7 @@ interface AppState {
   setSession: (s: Session | null) => void;
   logout: () => void;
   setActiveTenant: (id: string | null, slug?: string | null) => void;
+  setReferralCode: (c: string | null) => void;
   setSeeded: (b: boolean) => void;
   setDashboardTab: (t: string) => void;
   setAdminTab: (t: string) => void;
@@ -40,6 +44,7 @@ export const useApp = create<AppState>()(
       session: null,
       activeTenantId: null,
       activeTenantSlug: null,
+      referralCode: null,
       seeded: false,
       dashboardTab: "overview",
       adminTab: "overview",
@@ -52,6 +57,7 @@ export const useApp = create<AppState>()(
         }),
       logout: () => set({ session: null, view: "landing" }),
       setActiveTenant: (activeTenantId, activeTenantSlug = null) => set({ activeTenantId, activeTenantSlug }),
+      setReferralCode: (referralCode) => set({ referralCode }),
       setSeeded: (seeded) => set({ seeded }),
       setDashboardTab: (dashboardTab) => set({ dashboardTab }),
       setAdminTab: (adminTab) => set({ adminTab }),

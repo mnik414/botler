@@ -8,6 +8,8 @@ import { MarketplacePage } from "@/components/public/marketplace";
 import { PricingPage } from "@/components/public/pricing";
 import { LoginPage } from "@/components/public/login";
 import { SignupPage } from "@/components/public/signup";
+import { BusinessProfilePage } from "@/components/public/business-profile";
+import { ReferralPage } from "@/components/public/referral";
 import { DashboardView } from "@/components/dashboard";
 import { AdminView } from "@/components/admin";
 import { OperatorView } from "@/components/operator";
@@ -16,7 +18,7 @@ import { FloatingWidget } from "@/components/widget/chat-widget";
 import { Sparkles } from "lucide-react";
 
 export default function Home() {
-  const { view, session, seeded, setSeeded, activeTenantId, setView } = useApp();
+  const { view, session, seeded, setSeeded, activeTenantId, setView, setActiveTenant, setReferralCode } = useApp();
   const [booting, setBooting] = useState(true);
 
   // One-time seeding on first load
@@ -33,7 +35,40 @@ export default function Home() {
     })();
   }, [setSeeded]);
 
-  // Restore view based on session on first mount handled by persist already.
+  // Handle URL params: ?ref=CODE (referral landing), ?embed=1&tenantId=ID (widget iframe),
+  // ?tenant=SLUG (direct business profile). This makes the static /widget.js + shareable links work.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    const embed = params.get("embed");
+    const tenantId = params.get("tenantId");
+    const tenantSlug = params.get("tenant") || params.get("business");
+
+    if (ref) {
+      setReferralCode(ref.toUpperCase());
+      setView("referral");
+      return;
+    }
+    if (embed === "1" && tenantId) {
+      // Embedded widget mode — set active tenant, render only the widget (no shell)
+      setActiveTenant(tenantId);
+      return;
+    }
+    if (tenantSlug) {
+      // Resolve slug → tenant id and open business profile
+      (async () => {
+        try {
+          const items = await api<any[]>("/api/marketplace");
+          const found = items.find((m) => m.slug === tenantSlug);
+          if (found) {
+            setActiveTenant(found.id, found.slug);
+            setView("business");
+          }
+        } catch {}
+      })();
+    }
+  }, [setReferralCode, setView, setActiveTenant]);
 
   if (booting) {
     return (
@@ -48,8 +83,19 @@ export default function Home() {
     );
   }
 
-  const isPublic = ["landing", "marketplace", "pricing", "login", "signup", "widget-demo"].includes(view);
-  const showFloating = isPublic && view !== "widget-demo" && (activeTenantId || session?.tenant?.id);
+  // Embedded widget mode: render ONLY the widget full-viewport (for the iframe in widget.js)
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const isEmbedded = params?.get("embed") === "1" && activeTenantId;
+  if (isEmbedded) {
+    return (
+      <div className="fixed inset-0">
+        <FloatingWidget tenantId={activeTenantId} variant="panel" initialOpen accentColor={params?.get("accent") || undefined} />
+      </div>
+    );
+  }
+
+  const isPublic = ["landing", "marketplace", "pricing", "login", "signup", "widget-demo", "business", "referral"].includes(view);
+  const showFloating = isPublic && view !== "widget-demo" && view !== "business" && view !== "referral" && (activeTenantId || session?.tenant?.id);
 
   return (
     <>
@@ -67,6 +113,8 @@ export default function Home() {
           {view === "login" && <LoginPage />}
           {view === "signup" && <SignupPage />}
           {view === "widget-demo" && <WidgetDemoPage />}
+          {view === "business" && <BusinessProfilePage />}
+          {view === "referral" && <ReferralPage />}
         </PublicShell>
       ) : (
         <PublicShell>

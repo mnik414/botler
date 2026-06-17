@@ -102,7 +102,7 @@ export function LandingPage() {
 
   const talkTo = (item: MarketplaceItem) => {
     setActiveTenant(item.id, item.slug);
-    setView("widget-demo");
+    setView("business");
   };
 
   return (
