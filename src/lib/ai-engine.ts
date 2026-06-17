@@ -177,6 +177,7 @@ export async function runReceptionist(opts: {
     humanHandoff: boolean;
     growthLoop: boolean;
     name: string;
+    aiProviderId?: string | null;
   };
   businessName: string;
   businessType: string;
@@ -211,28 +212,38 @@ export async function runReceptionist(opts: {
 
   const fullSystem = `${agent.systemPrompt}\n\n🏢 کسب‌وکار: ${businessName} (نوع: ${businessType})\n Friendly persona name: ${agent.name}.${knowledgeBlock}${leadInstruction}${growthInstruction}\n\nقوانین:\n- فارسی، مودب و کوتاه پاسخ بده (حداکثر ۳ جمله مگر اینکه جزئیات لازم باشد).\n- فقط بر اساس دانش ارائه‌شده پاسخ بده؛ اگر مطمئن نیستی بگو «اجازه بده اپراتور را وارد کنم».\n- اطلاعات تماس مشتری را تأیید کن.`;
 
-  // 5. Call LLM via z-ai-web-dev-sdk
+  // 5. Call LLM — uses the tenant's active provider, or falls back to platform default (z-ai-web-dev-sdk)
   let reply = "";
   let tokens = 0;
   try {
-    const ZAI = (await import("z-ai-web-dev-sdk")).default;
-    const zai = await ZAI.create();
-    const messages = [
-      { role: "assistant", content: fullSystem } as const,
+    // Look up the tenant's configured AI provider (if any)
+    let provider = null;
+    if (agent.aiProviderId) {
+      const p = await db.aiProvider.findUnique({ where: { id: agent.aiProviderId } });
+      if (p && p.isActive) {
+        provider = {
+          id: p.id,
+          type: p.type as any,
+          apiKey: p.apiKey,
+          baseUrl: p.baseUrl,
+          model: p.model,
+        };
+      }
+    }
+    const { callLLM } = await import("@/lib/llm-providers");
+    const llmMessages = [
+      { role: "system" as const, content: fullSystem },
       ...history.slice(-8).map((m) => ({
         role: (m.role === "assistant" || m.role === "operator" ? "assistant" : "user") as "user" | "assistant",
         content: m.content,
       })),
-      { role: "user", content: userMessage } as const,
+      { role: "user" as const, content: userMessage },
     ];
-    const completion = await zai.chat.completions.create({
-      messages: messages as any,
-      thinking: { type: "disabled" },
-    });
-    reply = completion.choices[0]?.message?.content?.trim() || "";
-    tokens = (reply.length / 4) | 0;
+    const result = await callLLM(provider, llmMessages, { temperature: agent.temperature });
+    reply = result.content;
+    tokens = result.tokens;
   } catch (e: any) {
-    reply = "متأسفم، در لحظه پاسخگویی با مشکل مواجه شدم. لطفاً دوباره تلاش کنید یا با اپراتور صحبت کنید.";
+    reply = `متأسفم، در لحظه پاسخگویی با مشکل مواجه شدم. لطفاً دوباره تلاش کنید یا با اپراتور صحبت کنید.\n\n(خطای اتصال به سرویس هوش مصنوعی: ${e.message?.slice(0, 80) || "نامشخص"})`;
     confidence = 0.2;
   }
 

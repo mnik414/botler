@@ -110,13 +110,39 @@ model Agent {
   voiceEnabled       Boolean  @default(false)
   humanHandoff       Boolean  @default(true)
   growthLoop         Boolean  @default(true)
+  aiProviderId       String?  // null = use platform default (z-ai-web-dev-sdk)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aiProvider         AiProvider? @relation(fields: [aiProviderId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
 }
+
+// ────────────────────────────────────────────────────────────
+// AI Provider configs — connect your own OpenAI / Anthropic / Gemini / custom endpoint
+// ────────────────────────────────────────────────────────────
+model AiProvider {
+  id          String   @id @default(cuid())
+  tenantId    String   // owner tenant (platform default if matches a flagged tenant)
+  name        String   // display name, e.g. "OpenAI تولیدی"
+  type        String   // zai | openai | anthropic | gemini | custom
+  apiKey      String   // secret (stored; in production would be encrypted)
+  baseUrl     String   @default("") // custom base URL for openai-compatible / custom
+  model       String   // model id, e.g. gpt-4o, claude-3-5-sonnet-20241022, gemini-1.5-pro
+  isActive    Boolean  @default(true)
+  lastTestedAt DateTime?
+  lastTestOk  Boolean?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agents      Agent[]
+
+  @@index([tenantId])
+  @@index([type])
+}
+
 
 // ────────────────────────────────────────────────────────────
 // Knowledge Base (RAG source per tenant)

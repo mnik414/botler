@@ -47,6 +47,7 @@ export async function POST(req: Request) {
         humanHandoff: tenant.agent.humanHandoff,
         growthLoop: tenant.agent.growthLoop,
         name: tenant.agent.name,
+        aiProviderId: tenant.agent.aiProviderId,
       },
       businessName: tenant.name,
       businessType: tenant.businessType,
