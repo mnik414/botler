@@ -2,7 +2,7 @@
 // Each platform implements: sendMessage, verifyWebhook, parseIncomingMessage.
 // Adding a new platform = implement ChannelAdapter + register in CHANNEL_REGISTRY.
 
-export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "bale" | "widget" | "voice" | "sms";
+export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "bale" | "tiktok" | "airbnb" | "widget" | "voice" | "sms";
 
 export interface ChannelAdapter {
   code: PlatformCode;
@@ -219,6 +219,94 @@ const TelegramAdapter: ChannelAdapter = {
 } as any;
 
 // ────────────────────────────────────────────────────────────
+// TikTok (TikTok Business Messaging API)
+// ────────────────────────────────────────────────────────────
+const TikTokAdapter: ChannelAdapter = {
+  code: "tiktok",
+  name: "تیک‌تاک",
+  icon: "Video",
+  color: "#000000",
+  description: "پاسخ خودکار به پیام‌های تیک‌تاک با هوش مصنوعی. نیاز به TikTok Business Account و اتصال به TikTok Messaging API.",
+  setupSteps: [
+    "به TikTok for Developers بروید و یک اپ بسازید",
+    "TikTok Business Messaging API را فعال کنید",
+    "Access Token و App ID دریافت کنید",
+    "Webhook URL زیر را در تنظیمات اپ ثبت کنید",
+    "اشتراک webhook برای message.receive را فعال کنید",
+  ],
+  credentialsFields: [
+    { key: "accessToken", label: "Access Token", type: "password", placeholder: "tt.xxx...", required: true },
+    { key: "appId", label: "App ID", type: "text", placeholder: "123456789", required: true },
+    { key: "verifyToken", label: "Verify Token", type: "text", placeholder: "your-verify-token", required: true },
+  ],
+  async sendMessage(creds: any, recipientId: string, text: string) {
+    try {
+      const res = await fetch(`https://open.tiktokapis.com/v2/business/message/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Access-Token": creds.accessToken },
+        body: JSON.stringify({ app_id: creds.appId, to: recipientId, message: { text } }),
+      });
+      if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
+      return { ok: true };
+    } catch (e: any) { return { ok: false, error: e.message }; }
+  },
+  verifyWebhook(headers: any, body: any, secret: string) { return true; },
+  parseIncomingMessage(body: any) {
+    const event = body?.event;
+    const data = body?.data;
+    if (event !== "message.receive" || !data?.content?.text) return null;
+    return {
+      senderId: data?.from?.open_id || "",
+      senderName: data?.from?.name || "کاربر تیک‌تاک",
+      text: data.content.text,
+    };
+  },
+};
+
+// ────────────────────────────────────────────────────────────
+// Airbnb (Airbnb Host Messaging API)
+// ────────────────────────────────────────────────────────────
+const AirbnbAdapter: ChannelAdapter = {
+  code: "airbnb",
+  name: "Airbnb",
+  icon: "Home",
+  color: "#FF5A5F",
+  description: "پاسخ خودکار به پیام‌های مهمانان Airbnb با هوش مصنوعی. مناسب هتل‌ها و آژانس‌های گردشگری. نیاز به Airbnb API Token.",
+  setupSteps: [
+    "به Airbnb Developer Portal بروید و درخواست API access بدهید",
+    "Access Token و Listing ID دریافت کنید",
+    "Webhook URL زیر را در تنظیمات ثبت کنید",
+    "اشتراک webhook برای message_received را فعال کنید",
+  ],
+  credentialsFields: [
+    { key: "accessToken", label: "Access Token", type: "password", placeholder: "airbnb.xxx...", required: true },
+    { key: "listingId", label: "Listing ID", type: "text", placeholder: "12345678", required: true },
+    { key: "verifyToken", label: "Verify Token", type: "text", placeholder: "your-verify-token", required: true },
+  ],
+  async sendMessage(creds: any, recipientId: string, text: string) {
+    try {
+      const res = await fetch(`https://api.airbnb.com/v2/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Airbnb-API-Key": creds.accessToken },
+        body: JSON.stringify({ listing_id: creds.listingId, recipient_id: recipientId, message: text }),
+      });
+      if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
+      return { ok: true };
+    } catch (e: any) { return { ok: false, error: e.message }; }
+  },
+  verifyWebhook(headers: any, body: any, secret: string) { return true; },
+  parseIncomingMessage(body: any) {
+    const msg = body?.message;
+    if (!msg?.text) return null;
+    return {
+      senderId: String(msg?.sender?.id || ""),
+      senderName: msg?.sender?.first_name || "مهمان Airbnb",
+      text: msg.text,
+    };
+  },
+};
+
+// ────────────────────────────────────────────────────────────
 // Widget (already integrated — website chat widget)
 // ────────────────────────────────────────────────────────────
 const WidgetAdapter: ChannelAdapter = {
@@ -269,6 +357,8 @@ const CHANNEL_REGISTRY: Record<string, ChannelAdapter> = {
   whatsapp: WhatsAppAdapter,
   bale: BaleAdapter,
   telegram: TelegramAdapter,
+  tiktok: TikTokAdapter,
+  airbnb: AirbnbAdapter,
   widget: WidgetAdapter,
   voice: VoiceAdapter,
 };

@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Instagram, MessageCircle, Send, Globe, Phone, MessageSquare, Check, Loader2, Plug, AlertCircle,
+  Instagram, MessageCircle, Send, Globe, Phone, MessageSquare, Video, Home, Check, Loader2, Plug, AlertCircle,
   Copy, ExternalLink, ChevronDown, ChevronUp, Settings2, Zap, Bot,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { SectionCard, LoadingBlock, ErrorBlock, useAsync } from "./shared";
 
 const ICON_MAP: Record<string, any> = {
-  Instagram, MessageCircle, Send, Globe, Phone, MessageSquare,
+  Instagram, MessageCircle, Send, Globe, Phone, MessageSquare, Video, Home,
 };
 
 interface ChannelInfo {
@@ -256,7 +256,7 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
           )}
 
           {/* Webhook URL — always show (even before connecting) for Instagram/WhatsApp/Telegram */}
-          {(channel.platform === "instagram" || channel.platform === "whatsapp" || channel.platform === "telegram" || channel.platform === "bale") && (
+          {(channel.platform === "instagram" || channel.platform === "whatsapp" || channel.platform === "telegram" || channel.platform === "bale" || channel.platform === "tiktok" || channel.platform === "airbnb") && (
             <div className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
               <Label className="text-xs flex items-center gap-1.5">
                 <AlertCircle className="size-3 text-primary" />
@@ -278,16 +278,18 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
                 {channel.platform === "whatsapp" && "در Meta Business Manager → WhatsApp Business API → Webhook → Callback URL این آدرس را وارد کنید."}
                 {channel.platform === "telegram" && "برای تلگرام نیازی به ثبت دستی نیست — سیستم به‌طور خودکار Webhook را تنظیم می‌کند. فقط Bot Token را وارد کنید."}
                 {channel.platform === "bale" && "برای بله مسنجر نیازی به ثبت دستی نیست — سیستم به‌طور خودکار Webhook را تنظیم می‌کند. فقط Bot Token را وارد کنید."}
+                {channel.platform === "tiktok" && "در TikTok for Developers → اپ شما → Webhooks → Callback URL این آدرس را وارد کنید و Verify Token زیر را نیز وارد نمایید."}
+                {channel.platform === "airbnb" && "در Airbnb Developer Portal → اپ شما → Webhooks → Callback URL این آدرس را وارد کنید و Verify Token زیر را نیز وارد نمایید."}
               </div>
               {/* Verify Token display for Instagram/WhatsApp */}
-              {(channel.platform === "instagram" || channel.platform === "whatsapp") && (
+              {(channel.platform === "instagram" || channel.platform === "whatsapp" || channel.platform === "tiktok" || channel.platform === "airbnb") && (
                 <div className="mt-2">
-                  <Label className="text-[10px] text-muted-foreground">Verify Token (در پنل Meta وارد کنید)</Label>
+                  <Label className="text-[10px] text-muted-foreground">Verify Token (در پنل توسعه‌دهنده وارد کنید)</Label>
                   <div className="flex items-center gap-2 mt-1">
                     <code className="flex-1 bg-background rounded px-2 py-1 text-[10px] font-mono border" dir="ltr">
-                      {credentials.verifyToken || channel.connection?.webhookSecret?.slice(0, 20) || "یک کلمه دلخواه وارد کنید و همین را در پنل Meta بزنید"}
+                      {credentials.verifyToken || channel.connection?.webhookSecret?.slice(0, 20) || "یک کلمه دلخواه وارد کنید و همین را در پنل توسعه‌دهنده بزنید"}
                     </code>
-                    <p className="text-[9px] text-muted-foreground leading-3 max-w-[150px]">Verify Token یک کلمه دلخواه است که هم در پنل Meta و هم در فیلد Verify Token بالا وارد می‌کنید تا تأیید شود.</p>
+                    <p className="text-[9px] text-muted-foreground leading-3 max-w-[150px]">Verify Token یک کلمه دلخواه است که هم در پنل توسعه‌دهنده و هم در فیلد Verify Token بالا وارد می‌کنید تا تأیید شود.</p>
                   </div>
                 </div>
               )}
