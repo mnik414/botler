@@ -59,11 +59,11 @@ export async function POST(req: Request) {
   const webhookSecret = `${platform}-${tenantId.slice(0, 8)}-${Math.random().toString(36).slice(2, 12)}`;
   const webhookUrl = `${origin}/api/channels/webhook/${platform}?tenantId=${tenantId}`;
 
-  // For Telegram, set the webhook on Bot API
-  if (platform === "telegram" && credentials?.botToken) {
+  // For Telegram and Bale, set the webhook on Bot API automatically
+  if ((platform === "telegram" || platform === "bale") && credentials?.botToken) {
     try {
-      const tgAdapter = adapter as any;
-      await tgAdapter.setWebhook(credentials.botToken, webhookUrl, webhookSecret);
+      const botAdapter = adapter as any;
+      await botAdapter.setWebhook(credentials.botToken, webhookUrl, webhookSecret);
     } catch {}
   }
 

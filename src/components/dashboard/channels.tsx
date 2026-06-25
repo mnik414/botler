@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Instagram, MessageCircle, Send, Globe, Phone, Check, Loader2, Plug, AlertCircle,
+  Instagram, MessageCircle, Send, Globe, Phone, MessageSquare, Check, Loader2, Plug, AlertCircle,
   Copy, ExternalLink, ChevronDown, ChevronUp, Settings2, Zap, Bot,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { SectionCard, LoadingBlock, ErrorBlock, useAsync } from "./shared";
 
 const ICON_MAP: Record<string, any> = {
-  Instagram, MessageCircle, Send, Globe, Phone,
+  Instagram, MessageCircle, Send, Globe, Phone, MessageSquare,
 };
 
 interface ChannelInfo {
@@ -256,7 +256,7 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
           )}
 
           {/* Webhook URL — always show (even before connecting) for Instagram/WhatsApp/Telegram */}
-          {(channel.platform === "instagram" || channel.platform === "whatsapp" || channel.platform === "telegram") && (
+          {(channel.platform === "instagram" || channel.platform === "whatsapp" || channel.platform === "telegram" || channel.platform === "bale") && (
             <div className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
               <Label className="text-xs flex items-center gap-1.5">
                 <AlertCircle className="size-3 text-primary" />
@@ -277,6 +277,7 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
                 {channel.platform === "instagram" && "در Meta for Developers → اپ شما → Webhooks → Callback URL این آدرس را وارد کنید و Verify Token زیر را نیز وارد نمایید."}
                 {channel.platform === "whatsapp" && "در Meta Business Manager → WhatsApp Business API → Webhook → Callback URL این آدرس را وارد کنید."}
                 {channel.platform === "telegram" && "برای تلگرام نیازی به ثبت دستی نیست — سیستم به‌طور خودکار Webhook را تنظیم می‌کند. فقط Bot Token را وارد کنید."}
+                {channel.platform === "bale" && "برای بله مسنجر نیازی به ثبت دستی نیست — سیستم به‌طور خودکار Webhook را تنظیم می‌کند. فقط Bot Token را وارد کنید."}
               </div>
               {/* Verify Token display for Instagram/WhatsApp */}
               {(channel.platform === "instagram" || channel.platform === "whatsapp") && (
@@ -307,7 +308,7 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
           )}
 
           {/* Handle */}
-          {channel.platform === "telegram" && (
+          {(channel.platform === "telegram" || channel.platform === "bale") && (
             <div className="space-y-1.5">
               <Label className="text-xs">یوزرنیم ربات (اختیاری)</Label>
               <Input value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="@my_business_bot" dir="ltr" />

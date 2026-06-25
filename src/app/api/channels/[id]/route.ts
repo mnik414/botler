@@ -11,12 +11,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const conn = await db.channelConnection.findFirst({ where: { id, tenantId } });
   if (!conn) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  // For Telegram, delete the webhook
-  if (conn.platform === "telegram") {
+  // For Telegram and Bale, delete the webhook
+  if (conn.platform === "telegram" || conn.platform === "bale") {
     try {
       const creds = JSON.parse(conn.credentialsJson);
       if (creds.botToken) {
-        await fetch(`https://api.telegram.org/bot${creds.botToken}/deleteWebhook`);
+        if (conn.platform === "telegram") {
+          await fetch(`https://api.telegram.org/bot${creds.botToken}/deleteWebhook`);
+        } else if (conn.platform === "bale") {
+          await fetch(`https://api.bale.ai/v1/bots/${creds.botToken}/deleteWebhook`, { method: "POST" });
+        }
       }
     } catch {}
   }

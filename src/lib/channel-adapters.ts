@@ -2,7 +2,7 @@
 // Each platform implements: sendMessage, verifyWebhook, parseIncomingMessage.
 // Adding a new platform = implement ChannelAdapter + register in CHANNEL_REGISTRY.
 
-export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "widget" | "voice" | "sms";
+export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "bale" | "widget" | "voice" | "sms";
 
 export interface ChannelAdapter {
   code: PlatformCode;
@@ -115,6 +115,61 @@ const WhatsAppAdapter: ChannelAdapter = {
 };
 
 // ────────────────────────────────────────────────────────────
+// Bale (Iranian Messenger — Bale Bot API, similar to Telegram)
+// ────────────────────────────────────────────────────────────
+const BaleAdapter: ChannelAdapter = {
+  code: "bale",
+  name: "بله مسنجر",
+  icon: "MessageSquare",
+  color: "#2CA7E0",
+  description: "پاسخ خودکار به پیام‌های بله مسنجر با هوش مصنوعی. نیاز به ربات بله (BotFather@).",
+  setupSteps: [
+    "در بله مسنجر به @BotFather پیام دهید و /newbot را بزنید",
+    "نام و یوزرنیم ربات را وارد کنید",
+    "Bot Token دریافتی را در فیلد زیر وارد کنید",
+    "Webhook به‌طور خودکار با ذخیره تنظیم می‌شود",
+  ],
+  credentialsFields: [
+    { key: "botToken", label: "Bot Token", type: "password", placeholder: "123456:ABC-DEF...", required: true },
+  ],
+  async sendMessage(creds: any, recipientId: string, text: string) {
+    try {
+      // Bale Bot API is very similar to Telegram Bot API
+      const res = await fetch(`https://api.bale.ai/v1/bots/${creds.botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: recipientId, text, parse_mode: "HTML" }),
+      });
+      if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
+      return { ok: true };
+    } catch (e: any) { return { ok: false, error: e.message }; }
+  },
+  verifyWebhook(headers: any, body: any, secret: string) {
+    return true;
+  },
+  parseIncomingMessage(body: any) {
+    const msg = body?.message;
+    if (!msg?.text) return null;
+    return {
+      senderId: String(msg.chat?.id || msg.from?.id || ""),
+      senderName: msg.from?.first_name || msg.from?.username || "کاربر بله",
+      text: msg.text,
+    };
+  },
+  // Bale-specific: set webhook on save (similar to Telegram)
+  async setWebhook(botToken: string, webhookUrl: string, secret: string) {
+    try {
+      const res = await fetch(`https://api.bale.ai/v1/bots/${botToken}/setWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: webhookUrl, secret_token: secret }),
+      });
+      return res.ok;
+    } catch { return false; }
+  },
+} as any;
+
+// ────────────────────────────────────────────────────────────
 // Telegram (via Telegram Bot API)
 // ────────────────────────────────────────────────────────────
 const TelegramAdapter: ChannelAdapter = {
@@ -212,6 +267,7 @@ const VoiceAdapter: ChannelAdapter = {
 const CHANNEL_REGISTRY: Record<string, ChannelAdapter> = {
   instagram: InstagramAdapter,
   whatsapp: WhatsAppAdapter,
+  bale: BaleAdapter,
   telegram: TelegramAdapter,
   widget: WidgetAdapter,
   voice: VoiceAdapter,
