@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   LayoutDashboard, BookOpen, MessagesSquare, UserPlus, Bot, BarChart3,
   CreditCard, Gift, Code2, Menu, LogOut, MessageSquare, ExternalLink,
-  Sparkles, ChevronLeft, Users, type LucideIcon,
+  Sparkles, ChevronLeft, Users, Plug, type LucideIcon,
 } from "lucide-react";
 import { BUSINESS_TYPE_LABELS, ROLE_LABELS } from "@/lib/format";
 import { getBusinessType } from "@/lib/business-types";
@@ -33,6 +33,7 @@ import { BillingTab } from "./billing";
 import { ReferralTab } from "./referral";
 import { WidgetTab } from "./widget";
 import { OperatorsTab } from "./operators";
+import { ChannelsTab } from "./channels";
 
 interface NavItem {
   key: string;
@@ -48,6 +49,7 @@ const NAV: NavItem[] = [
   { key: "leads", label: "لیدها", icon: UserPlus, group: "اصلی" },
   { key: "operators", label: "اپراتورها", icon: Users, group: "team" },
   { key: "agent", label: "تنظیم منشی", icon: Bot, group: "پیکربندی" },
+  { key: "channels", label: "کانال‌ها", icon: Plug, group: "پیکربندی" },
   { key: "analytics", label: "تحلیل‌ها", icon: BarChart3, group: "پیکربندی" },
   { key: "billing", label: "اشتراک و صورتحساب", icon: CreditCard, group: "حساب" },
   { key: "referral", label: "معرفی و درآمد", icon: Gift, group: "حساب" },
@@ -61,6 +63,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   leads: { title: "لیدها", subtitle: "مدیریت سرنخ‌های فروش" },
   operators: { title: "اپراتورها", subtitle: "مدیریت کاربران دسترسی‌دار به پنل" },
   agent: { title: "تنظیم منشی", subtitle: "پیکربندی شخصیت و رفتار منشی" },
+  channels: { title: "اتصال کانال‌ها", subtitle: "اتصال منشی به اینستاگرام، واتساپ، تلگرام و وب‌سایت" },
   analytics: { title: "تحلیل‌ها", subtitle: "نمودارها و آمار دقیق" },
   billing: { title: "اشتراک و صورتحساب", subtitle: "مدیریت پلن و پرداخت" },
   referral: { title: "معرفی و درآمد", subtitle: "برنامه همکاری در فروش" },
@@ -260,6 +263,7 @@ export function DashboardView() {
                 {tab === "leads" && <LeadsTab tenantId={tenant.id} />}
                 {tab === "operators" && <OperatorsTab tenantId={tenant.id} />}
                 {tab === "agent" && <AgentTab tenantId={tenant.id} />}
+                {tab === "channels" && <ChannelsTab tenantId={tenant.id} />}
                 {tab === "analytics" && <AnalyticsTab tenantId={tenant.id} />}
                 {tab === "billing" && <BillingTab tenantId={tenant.id} />}
                 {tab === "referral" && <ReferralTab tenantId={tenant.id} />}

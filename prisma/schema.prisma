@@ -67,6 +67,7 @@ model Tenant {
   referral        Referral?
   tokenLogs       TokenUsageLog[]
   internalLeads   InternalLead[]
+  channelConnections ChannelConnection[]
 
   @@index([businessType])
   @@index([category])
@@ -352,4 +353,33 @@ model PlatformConfig {
   key           String   @unique
   valueJson     String
   updatedAt     DateTime @updatedAt
+}
+
+// ────────────────────────────────────────────────────────────
+// Channel Connections (Instagram, WhatsApp, Telegram, etc.)
+// ────────────────────────────────────────────────────────────
+model ChannelConnection {
+  id            String   @id @default(cuid())
+  tenantId      String
+  platform      String   // instagram | whatsapp | telegram | widget | voice | sms
+  status        String   @default("disconnected") // connected | disconnected | pending | error
+  handle        String   @default("") // @username / phone number / bot name
+  credentialsJson String @default("{}") // encrypted tokens/keys (platform-specific)
+  webhookUrl    String   @default("") // the webhook URL this platform sends messages to
+  webhookSecret String   @default("") // shared secret for webhook verification
+  autoReply     Boolean  @default(true) // AI auto-reply on this channel
+  handoffEnabled Boolean @default(true) // allow human handoff
+  lastMessageAt DateTime?
+  lastTestedAt  DateTime?
+  lastTestOk    Boolean?
+  errorMessage  String   @default("")
+  messageCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([platform])
+  @@index([status])
 }
