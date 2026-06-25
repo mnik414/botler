@@ -217,7 +217,7 @@ export async function runReceptionist(opts: {
   let tokens = 0;
   try {
     // Look up the tenant's configured AI provider (if any)
-    let provider = null;
+    let provider: any = null;
     if (agent.aiProviderId) {
       const p = await db.aiProvider.findUnique({ where: { id: agent.aiProviderId } });
       if (p && p.isActive) {

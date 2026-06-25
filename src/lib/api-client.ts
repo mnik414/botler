@@ -51,12 +51,17 @@ export interface Plan {
   name: string;
   description: string;
   priceMonthly: number;
+  priceQuarterly?: number;
+  priceYearly?: number;
+  priceUsdt?: number;
+  trialDays?: number;
   messageLimit: number;
   conversationLimit: number;
   voiceMinutes: number;
   tokenLimit: number;
   features: string[];
   popular: boolean;
+  active?: boolean;
 }
 
 export interface MarketplaceItem {

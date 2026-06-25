@@ -96,7 +96,7 @@ export function ReferralPage() {
             <Button size="lg" variant="secondary" className="gap-2 shadow-lg" onClick={() => setView("signup")}>
               <Sparkles className="size-4" /> شاخت منشی رایگان
             </Button>
-            <Button size="lg" variant="outline" className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white gap-2" onClick={() => setActiveTenant(info.tenant.id, info.tenant.slug) || setView("business")}>
+            <Button size="lg" variant="outline" className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white gap-2" onClick={() => { setActiveTenant(info.tenant.id, info.tenant.slug); setView("business"); }}>
               <Store className="size-4" /> دیدن کسب‌وکار {info.tenant.name}
             </Button>
           </div>

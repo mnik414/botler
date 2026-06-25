@@ -118,7 +118,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ platfor
       data: {
         confidence: result.confidence,
         messageCount: { increment: 2 },
-        lastMessageAt: new Date(),
+        updatedAt: new Date(),
         status: result.handoff ? "handoff" : "ai",
       },
     });

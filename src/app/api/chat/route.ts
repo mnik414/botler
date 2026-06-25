@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     });
 
     // Update conversation state
-    let leadCreated = null;
+    let leadCreated: any = null;
     if (result.lead.detected && (result.lead.phone || result.lead.email)) {
       const existing = await db.lead.findFirst({
         where: { tenantId, phone: result.lead.phone || "" },
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     }
 
     // Booking / sales intent detection → create a Booking record
-    let bookingCreated = null;
+    let bookingCreated: any = null;
     const booking = detectBooking(message);
     if (booking.detected && booking.type) {
       const bookingLabels: Record<string, string> = {

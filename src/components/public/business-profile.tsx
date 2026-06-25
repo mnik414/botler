@@ -11,8 +11,8 @@ import {
   ArrowRight, MapPin, Phone, Instagram, Globe, Clock, MessageSquare,
   Sparkles, ShieldCheck, Bot, Store, ChevronRight, ExternalLink,
 } from "lucide-react";
-import { BUSINESS_TYPE_LABELS, getBusinessType } from "@/lib/business-types";
-import { toFa } from "@/lib/format";
+import { getBusinessType } from "@/lib/business-types";
+import { BUSINESS_TYPE_LABELS, toFa } from "@/lib/format";
 
 export function BusinessProfilePage() {
   const { activeTenantId, activeTenantSlug, setActiveTenant, setView } = useApp();

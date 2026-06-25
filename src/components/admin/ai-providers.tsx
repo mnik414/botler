@@ -147,7 +147,7 @@ export function AdminAiProviders() {
   };
 
   if (tenantsReq.loading) return <div className="space-y-4"><CardSkeletons count={3} /><Card className="p-5"><Skeleton className="h-40 w-full" /></Card></div>;
-  if (tenantsReq.error || !tenantsReq.data) return <ErrorState message={tenantsReq.error || undefined} onReload={tenantsReq.reload} />;
+  if (tenantsReq.error || !tenantsReq.data) return <ErrorState message={tenantsReq.error || "خطا"} onReload={tenantsReq.reload} />;
 
   return (
     <div className="space-y-4">

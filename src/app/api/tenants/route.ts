@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         whatsapp,
         phone,
         address,
-        accentColor: bt.code === "store" ? "#8b5cf6" : bt.code === "restaurant" ? "#f59e0b" : bt.code === "medical" || bt.code === "doctor" || bt.code === "clinic" ? "#0ea5e9" : bt.code === "travel" || bt.code === "hotel" ? "#ec4899" : bt.code === "education" || bt.code === "academy" ? "#14b8a6" : "#10b981",
+        accentColor: bt.code === "store" ? "#8b5cf6" : bt.code === "restaurant" ? "#f59e0b" : (bt.code === "doctor" || bt.code === "clinic") ? "#0ea5e9" : (bt.code === "travel" || bt.code === "hotel") ? "#ec4899" : bt.code === "academy" ? "#14b8a6" : "#10b981",
         category: bt.category,
         planId: plan.id,
         status: "active",
