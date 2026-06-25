@@ -255,8 +255,46 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
             </div>
           )}
 
-          {/* Webhook URL (for connected channels) */}
-          {channel.connected && channel.connection?.webhookUrl && (
+          {/* Webhook URL — always show (even before connecting) for Instagram/WhatsApp/Telegram */}
+          {(channel.platform === "instagram" || channel.platform === "whatsapp" || channel.platform === "telegram") && (
+            <div className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <Label className="text-xs flex items-center gap-1.5">
+                <AlertCircle className="size-3 text-primary" />
+                Webhook URL — این آدرس را در پنل توسعه‌دهنده ثبت کنید
+              </Label>
+              {(() => {
+                const webhookUrl = channel.connection?.webhookUrl || `${typeof window !== "undefined" ? window.location.origin : "https://your-platform.com"}/api/channels/webhook/${channel.platform}?tenantId=${tenantId}`;
+                return (
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-background rounded px-2 py-1.5 text-[10px] font-mono break-all border" dir="ltr">{webhookUrl}</code>
+                    <Button variant="outline" size="icon" className="size-8 shrink-0" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("کپی شد"); }}>
+                      <Copy className="size-3.5" />
+                    </Button>
+                  </div>
+                );
+              })()}
+              <div className="text-[10px] text-muted-foreground leading-4 mt-1">
+                {channel.platform === "instagram" && "در Meta for Developers → اپ شما → Webhooks → Callback URL این آدرس را وارد کنید و Verify Token زیر را نیز وارد نمایید."}
+                {channel.platform === "whatsapp" && "در Meta Business Manager → WhatsApp Business API → Webhook → Callback URL این آدرس را وارد کنید."}
+                {channel.platform === "telegram" && "برای تلگرام نیازی به ثبت دستی نیست — سیستم به‌طور خودکار Webhook را تنظیم می‌کند. فقط Bot Token را وارد کنید."}
+              </div>
+              {/* Verify Token display for Instagram/WhatsApp */}
+              {(channel.platform === "instagram" || channel.platform === "whatsapp") && (
+                <div className="mt-2">
+                  <Label className="text-[10px] text-muted-foreground">Verify Token (در پنل Meta وارد کنید)</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="flex-1 bg-background rounded px-2 py-1 text-[10px] font-mono border" dir="ltr">
+                      {credentials.verifyToken || channel.connection?.webhookSecret?.slice(0, 20) || "یک کلمه دلخواه وارد کنید و همین را در پنل Meta بزنید"}
+                    </code>
+                    <p className="text-[9px] text-muted-foreground leading-3 max-w-[150px]">Verify Token یک کلمه دلخواه است که هم در پنل Meta و هم در فیلد Verify Token بالا وارد می‌کنید تا تأیید شود.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Webhook URL for already-connected channels */}
+          {channel.connected && channel.connection?.webhookUrl && (channel.platform === "voice") && (
             <div className="space-y-1.5">
               <Label className="text-xs">Webhook URL</Label>
               <div className="flex items-center gap-2">
@@ -265,7 +303,6 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
                   <Copy className="size-3.5" />
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground">این آدرس را در تنظیمات پلتفرم مربوطه ثبت کنید</p>
             </div>
           )}
 
