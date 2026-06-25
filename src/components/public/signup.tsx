@@ -91,6 +91,7 @@ export function SignupPage() {
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [usdtRate, setUsdtRate] = useState<number | null>(null);
 
   // Phone validation (Iranian phone-like)
   const phoneValid = (v: string) => /^[\d۰-۹\-+\s()]{7,}$/.test(toEnDigits(v));
@@ -99,8 +100,12 @@ export function SignupPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await api<Plan[]>("/api/plans");
-        setPlans(data);
+        const [planData, rateData] = await Promise.all([
+          api<Plan[]>("/api/plans"),
+          api<{ rate: number; source: string }>("/api/billing/usdt-rate").catch(() => null),
+        ]);
+        setPlans(planData);
+        if (rateData) setUsdtRate(rateData.rate);
       } catch {
         // ignore
       } finally {
@@ -108,6 +113,11 @@ export function SignupPage() {
       }
     })();
   }, []);
+
+  const tomanToUsdt = (toman: number): number => {
+    if (!usdtRate || usdtRate <= 0) return 0;
+    return Number((toman / usdtRate).toFixed(2));
+  };
 
   const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -460,6 +470,14 @@ export function SignupPage() {
                               </span>
                               <span className="text-[11px] text-muted-foreground">/ ماه</span>
                             </div>
+                            {usdtRate && plan.priceMonthly > 0 ? (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="inline-flex items-center gap-1 rounded bg-teal-500/10 text-teal-600 px-1.5 py-0.5 text-[10px] font-medium">
+                                  ₮ {toFa(tomanToUsdt(plan.priceMonthly))} USDT
+                                </span>
+                                <span className="text-[9px] text-muted-foreground">/ ماه</span>
+                              </div>
+                            ) : null}
                             <div className="flex flex-wrap gap-1.5 mt-2">
                               <Badge variant="secondary" className="text-[10px]">
                                 {formatCompact(plan.messageLimit)} پیام

@@ -48,12 +48,21 @@ export function PricingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [annual, setAnnual] = useState(false);
+  const [usdtRate, setUsdtRate] = useState<number | null>(null);
+  const [usdtSource, setUsdtSource] = useState<string>("");
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await api<Plan[]>("/api/plans");
-        setPlans(data);
+        const [planData, rateData] = await Promise.all([
+          api<Plan[]>("/api/plans"),
+          api<{ rate: number; source: string }>("/api/billing/usdt-rate").catch(() => null),
+        ]);
+        setPlans(planData);
+        if (rateData) {
+          setUsdtRate(rateData.rate);
+          setUsdtSource(rateData.source);
+        }
       } catch {
         // ignore
       } finally {
@@ -61,6 +70,12 @@ export function PricingPage() {
       }
     })();
   }, []);
+
+  // Convert Toman to USDT using live rate
+  const tomanToUsdt = (toman: number): number => {
+    if (!usdtRate || usdtRate <= 0) return 0;
+    return Number((toman / usdtRate).toFixed(2));
+  };
 
   return (
     <div className="container mx-auto px-4 py-10 md:py-14">
@@ -76,6 +91,15 @@ export function PricingPage() {
         <p className="text-muted-foreground mt-3 leading-7">
           شروع رایگان با دوره آزمایشی. بدون کارت اعتباری. ارتقا یا تنزل در هر زمان.
         </p>
+
+        {/* USDT rate indicator */}
+        {usdtRate ? (
+          <div className="inline-flex items-center gap-2 mt-4 text-xs text-muted-foreground bg-teal-500/5 border border-teal-500/20 rounded-full px-3 py-1.5">
+            <span className="size-1.5 rounded-full bg-teal-500 animate-pulse" />
+            <span>نرخ لحظه‌ای تتر: <strong className="text-teal-600">{toFa(usdtRate.toLocaleString("en-US"))}</strong> تومان</span>
+            <span className="text-[10px] text-muted-foreground/70">({usdtSource})</span>
+          </div>
+        ) : null}
 
         {/* Billing toggle */}
         <div className="inline-flex items-center gap-3 mt-6 bg-muted rounded-full px-4 py-2">
@@ -142,6 +166,15 @@ export function PricingPage() {
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {annual ? "در سال" : "در ماه"}
                     </div>
+                    {/* USDT equivalent (live rate) */}
+                    {usdtRate && displayPrice > 0 ? (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-teal-500/10 text-teal-600 px-1.5 py-0.5 text-[11px] font-medium">
+                          ₮ {toFa(tomanToUsdt(displayPrice))} USDT
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">/ {annual ? "سال" : "ماه"}</span>
+                      </div>
+                    ) : null}
                     {annual && plan.priceMonthly > 0 && (
                       <div className="text-[11px] text-primary mt-1">
                         معادل {formatToman(Math.round(plan.priceMonthly * 10 / 12))} در ماه
