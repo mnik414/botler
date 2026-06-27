@@ -1,0 +1,27 @@
+services:
+  botler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: botler
+    restart: always
+    expose:
+      - 3000
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/db/custom.db
+    volumes:
+      - ./db:/app/db:rw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.botler.rule=Host(`botler.help`)"
+      - "traefik.http.routers.botler.entrypoints=websecure"
+      - "traefik.http.routers.botler.tls=true"
+      - "traefik.http.routers.botler.service=botler"
+      - "traefik.http.services.botler.loadbalancer.server.port=3000"
+    networks:
+      - web_proxy
+
+networks:
+  web_proxy:
+    external: true
