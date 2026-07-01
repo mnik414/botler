@@ -19,22 +19,13 @@ import { FloatingWidget } from "@/components/widget/chat-widget";
 import { Sparkles } from "lucide-react";
 
 export default function Home() {
-  const { view, session, seeded, setSeeded, activeTenantId, setView, setActiveTenant, setReferralCode } = useApp();
+  const { view, session, activeTenantId, setView, setActiveTenant, setReferralCode } = useApp();
   const [booting, setBooting] = useState(true);
 
-  // One-time seeding on first load
+  // Initial boot
   useEffect(() => {
-    (async () => {
-      try {
-        await api("/api/seed", { method: "POST", body: JSON.stringify({}) });
-        setSeeded(true);
-      } catch {
-        // ignore — may already be seeded
-      } finally {
-        setBooting(false);
-      }
-    })();
-  }, [setSeeded]);
+    setBooting(false);
+  }, []);
 
   // Handle URL params: ?ref=CODE (referral landing), ?embed=1&tenantId=ID (widget iframe),
   // ?tenant=SLUG (direct business profile). This makes the static /widget.js + shareable links work.

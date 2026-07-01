@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 // List operators (and other users) for a tenant
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,11 +25,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const existing = await db.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) return NextResponse.json({ error: "این ایمیل قبلاً ثبت شده است" }, { status: 400 });
 
+  const passwordHash = await bcrypt.hash(password, 10);
   const user = await db.user.create({
     data: {
       name,
       email: email.toLowerCase(),
-      passwordHash: password,
+      passwordHash,
       role,
       tenantId: id,
     },

@@ -7,32 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Sparkles, Mail, Lock, LogIn, UserCog, Store, Headphones, ArrowLeft, Info } from "lucide-react";
-
-const DEMO_CREDS = [
-  {
-    role: "مدیر سیستم",
-    email: "admin@receptionist.ai",
-    password: "admin123",
-    icon: UserCog,
-    desc: "دسترسی کامل به همه بخش‌ها",
-  },
-  {
-    role: "صاحب کسب‌وکار",
-    email: "owner1@cafe-bamdad.com",
-    password: "demo123",
-    icon: Store,
-    desc: "داشبورد مدیریت کافه بامداد",
-  },
-  {
-    role: "اپراتور",
-    email: "op1@cafe-bamdad.com",
-    password: "demo123",
-    icon: Headphones,
-    desc: "پاسخ به گفتگوهای منتقل‌شده",
-  },
-];
+import { Sparkles, Mail, Lock, LogIn } from "lucide-react";
 
 export function LoginPage() {
   const { setView, setSession } = useApp();
@@ -61,12 +36,6 @@ export function LoginPage() {
     }
   };
 
-  const quickFill = (em: string, pw: string) => {
-    setEmail(em);
-    setPassword(pw);
-    toast.info("اطلاعات نمونه پر شد");
-  };
-
   return (
     <div className="container mx-auto px-4 py-10 md:py-16 min-h-[80vh] flex items-center justify-center">
       <div className="grid lg:grid-cols-2 gap-8 w-full max-w-4xl items-center">
@@ -88,35 +57,6 @@ export function LoginPage() {
             وارد پنل مدیریت شوید تا منشی‌ها، گفتگوها، لیدها و تنظیمات کسب‌وکار خود را
             مدیریت کنید.
           </p>
-
-          {/* Demo credentials */}
-          <Alert className="mt-6">
-            <Info className="size-4" />
-            <AlertTitle>اطلاعات ورود نمونه</AlertTitle>
-            <AlertDescription>
-              <div className="space-y-2 mt-2">
-                {DEMO_CREDS.map((c) => {
-                  const Icon = c.icon;
-                  return (
-                    <button
-                      key={c.email}
-                      onClick={() => quickFill(c.email, c.password)}
-                      className="w-full text-right flex items-center gap-3 p-2 rounded-md hover:bg-accent transition-colors border border-transparent hover:border-border"
-                    >
-                      <div className="grid place-items-center size-8 rounded-lg bg-primary/10 text-primary shrink-0">
-                        <Icon className="size-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{c.role}</div>
-                        <div className="text-[11px] text-muted-foreground truncate" dir="ltr">{c.email}</div>
-                      </div>
-                      <ArrowLeft className="size-3.5 text-muted-foreground shrink-0" />
-                    </button>
-                  );
-                })}
-              </div>
-            </AlertDescription>
-          </Alert>
         </div>
 
         {/* Form side */}
@@ -182,36 +122,6 @@ export function LoginPage() {
                 )}
               </Button>
             </form>
-
-            {/* Mobile demo creds */}
-            <div className="lg:hidden mt-4">
-              <Alert>
-                <Info className="size-4" />
-                <AlertTitle>ورود سریع با حساب نمونه</AlertTitle>
-                <AlertDescription>
-                  <div className="space-y-2 mt-2">
-                    {DEMO_CREDS.map((c) => {
-                      const Icon = c.icon;
-                      return (
-                        <button
-                          key={c.email}
-                          onClick={() => quickFill(c.email, c.password)}
-                          className="w-full text-right flex items-center gap-2 p-2 rounded-md hover:bg-accent"
-                        >
-                          <div className="grid place-items-center size-7 rounded-lg bg-primary/10 text-primary shrink-0">
-                            <Icon className="size-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium">{c.role}</div>
-                            <div className="text-[10px] text-muted-foreground truncate" dir="ltr">{c.email}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            </div>
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
               حساب کاربری ندارید؟{" "}

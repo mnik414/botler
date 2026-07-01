@@ -1,31 +1,12 @@
 // Client-side API helpers
 import type { ChatMessage, RagSource } from "@/lib/types";
 
-// Reads the persisted session (user id + role) so we can send it as headers
-// for server-side role gating on protected mutations.
-function getSessionHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem("ai-receptionist");
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    const session = parsed?.state?.session;
-    if (!session?.id) return {};
-    return {
-      "X-User-Id": session.id,
-      "X-User-Role": session.role || "",
-    };
-  } catch {
-    return {};
-  }
-}
-
 export async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...opts,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...getSessionHeaders(),
       ...(opts?.headers || {}),
     },
   });

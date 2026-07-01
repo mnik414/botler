@@ -15,12 +15,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   LayoutDashboard, BookOpen, MessagesSquare, UserPlus, Bot, BarChart3,
   CreditCard, Gift, Code2, Menu, LogOut, MessageSquare, ExternalLink,
-  Sparkles, ChevronLeft, Users, Plug, type LucideIcon,
+  Sparkles, ChevronLeft, Users, Plug, Lock, type LucideIcon,
 } from "lucide-react";
 import { BUSINESS_TYPE_LABELS, ROLE_LABELS } from "@/lib/format";
 import { getBusinessType } from "@/lib/business-types";
 import { FloatingWidget } from "@/components/widget/chat-widget";
+import { api } from "@/lib/api-client";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { OverviewTab } from "./overview";
@@ -74,6 +78,10 @@ export function DashboardView() {
   const { session, dashboardTab, setDashboardTab, setView, logout } = useApp();
   const [chatOpen, setChatOpen] = React.useState(false);
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [changingPassword, setChangingPassword] = React.useState(false);
 
   if (!session || !session.tenant) {
     return (
@@ -169,6 +177,10 @@ export function DashboardView() {
             <DropdownMenuItem onClick={() => setView("marketplace")}>
               <ExternalLink className="size-4" /> مشاهده در بازار کسب‌وکارها
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { setPasswordDialogOpen(true); setCurrentPassword(""); setNewPassword(""); }}>
+              <Lock className="size-4" /> تغییر رمز عبور
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
                 logout();
@@ -273,6 +285,76 @@ export function DashboardView() {
           </div>
         </main>
       </div>
+
+      {/* Change password dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>تغییر رمز عبور</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!currentPassword || newPassword.length < 6) {
+                toast.error("رمز عبور جدید باید حداقل ۶ کاراکتر باشد");
+                return;
+              }
+              setChangingPassword(true);
+              try {
+                await api("/api/auth/change-password", {
+                  method: "POST",
+                  body: JSON.stringify({ currentPassword, newPassword }),
+                });
+                toast.success("رمز عبور با موفقیت تغییر کرد");
+                setPasswordDialogOpen(false);
+                setCurrentPassword("");
+                setNewPassword("");
+              } catch (err: any) {
+                toast.error(err.message || "تغییر رمز عبور ناموفق بود");
+              } finally {
+                setChangingPassword(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">رمز عبور فعلی</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                dir="ltr"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+                className="text-left"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">رمز عبور جدید</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                dir="ltr"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="حداقل ۶ کاراکتر"
+                className="text-left"
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setPasswordDialogOpen(false)}>
+                انصراف
+              </Button>
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword ? "در حال تغییر…" : "تغییر رمز عبور"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

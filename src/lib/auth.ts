@@ -1,9 +1,7 @@
 import { db } from "@/lib/db";
+import { jwtVerify } from "jose";
 
-// Server-side role verification helper.
-// Reads X-User-Id + X-User-Role from request headers (set by the client api() helper
-// from the persisted session) and verifies against the database.
-// In production this would use a real JWT/session — this is a lightweight demo gate.
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-dev-secret-change-in-production");
 
 export interface AuthUser {
   id: string;
@@ -11,18 +9,33 @@ export interface AuthUser {
   tenantId: string | null;
 }
 
-// Returns the authenticated user (verified against DB) or null.
+// Verify JWT from the request cookie.
 export async function getAuthUser(req: Request): Promise<AuthUser | null> {
-  const userId = req.headers.get("x-user-id");
-  const role = req.headers.get("x-user-role");
-  if (!userId || !role) return null;
-  // Verify the user exists and the role matches (prevents header spoofing for privilege escalation)
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { id: true, role: true, tenantId: true },
-  });
-  if (!user || user.role !== role) return null;
-  return { id: user.id, role: user.role, tenantId: user.tenantId };
+  try {
+    const cookieHeader = req.headers.get("cookie") || "";
+    const cookies = Object.fromEntries(
+      cookieHeader.split(";").map((c) => {
+        const [k, ...v] = c.trim().split("=");
+        return [k, v.join("=")];
+      })
+    );
+    const token = cookies["token"];
+    if (!token) return null;
+
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    if (!payload.sub || !payload.role) return null;
+
+    // Verify the user still exists in DB (prevents deleted users from using old tokens)
+    const user = await db.user.findUnique({
+      where: { id: payload.sub as string },
+      select: { id: true, role: true, tenantId: true },
+    });
+    if (!user || user.role !== payload.role) return null;
+
+    return { id: user.id, role: user.role, tenantId: user.tenantId };
+  } catch {
+    return null;
+  }
 }
 
 // Require a specific role. Returns the user or a 403 NextResponse.

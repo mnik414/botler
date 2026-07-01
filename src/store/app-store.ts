@@ -23,7 +23,6 @@ interface AppState {
   activeTenantId: string | null;
   activeTenantSlug: string | null;
   referralCode: string | null;
-  seeded: boolean;
   dashboardTab: string;
   adminTab: string;
   widgetOpen: boolean;
@@ -32,7 +31,6 @@ interface AppState {
   logout: () => void;
   setActiveTenant: (id: string | null, slug?: string | null) => void;
   setReferralCode: (c: string | null) => void;
-  setSeeded: (b: boolean) => void;
   setDashboardTab: (t: string) => void;
   setAdminTab: (t: string) => void;
   setWidgetOpen: (b: boolean) => void;
@@ -46,7 +44,6 @@ export const useApp = create<AppState>()(
       activeTenantId: null,
       activeTenantSlug: null,
       referralCode: null,
-      seeded: false,
       dashboardTab: "overview",
       adminTab: "overview",
       widgetOpen: false,
@@ -59,7 +56,6 @@ export const useApp = create<AppState>()(
       logout: () => set({ session: null, view: "landing" }),
       setActiveTenant: (activeTenantId, activeTenantSlug = null) => set({ activeTenantId, activeTenantSlug }),
       setReferralCode: (referralCode) => set({ referralCode }),
-      setSeeded: (seeded) => set({ seeded }),
       setDashboardTab: (dashboardTab) => set({ dashboardTab }),
       setAdminTab: (adminTab) => set({ adminTab }),
       setWidgetOpen: (widgetOpen) => set({ widgetOpen }),

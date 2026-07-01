@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getBusinessType } from "@/lib/business-types";
 import { buildChunks } from "@/lib/ai-engine";
+import bcrypt from "bcryptjs";
 
 // List tenants (admin view)
 export async function GET() {
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
       planCode = "growth",
       ownerEmail,
       ownerName,
+      ownerPassword = "demo123",
     } = body;
 
     if (!businessType || !name || !ownerEmail) {
@@ -64,13 +66,14 @@ export async function POST(req: Request) {
     });
 
     // Owner user
+    const passwordHash = await bcrypt.hash(ownerPassword, 10);
     await db.user.create({
       data: {
         email: ownerEmail,
         name: ownerName || `مدیر ${name}`,
         role: "business_owner",
         tenantId: tenant.id,
-        passwordHash: "demo123",
+        passwordHash,
       },
     });
 

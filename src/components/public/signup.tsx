@@ -68,6 +68,7 @@ interface FormState {
   planCode: string;
   ownerEmail: string;
   ownerName: string;
+  ownerPassword: string;
 }
 
 const INITIAL: FormState = {
@@ -81,6 +82,7 @@ const INITIAL: FormState = {
   planCode: "growth",
   ownerEmail: "",
   ownerName: "",
+  ownerPassword: "",
 };
 
 export function SignupPage() {
@@ -126,7 +128,7 @@ export function SignupPage() {
     if (step === 1) return !!form.businessType;
     if (step === 2) return form.name.trim().length >= 2 && phoneValid(form.phone);
     if (step === 3) return !!form.planCode;
-    if (step === 4) return emailValid(form.ownerEmail) && form.ownerName.trim().length >= 2;
+    if (step === 4) return emailValid(form.ownerEmail) && form.ownerName.trim().length >= 2 && form.ownerPassword.trim().length >= 6;
     return false;
   };
 
@@ -150,22 +152,21 @@ export function SignupPage() {
           planCode: form.planCode,
           ownerEmail: form.ownerEmail.toLowerCase(),
           ownerName: form.ownerName,
+          ownerPassword: form.ownerPassword,
         }),
       });
       setDone(true);
       toast.success("منشی شما ساخته شد! در حال ورود…");
-      // Auto-login
+      // Auto-login with user's password
       try {
         const session = await api<Session>("/api/auth/login", {
           method: "POST",
-          body: JSON.stringify({ email: form.ownerEmail.toLowerCase(), password: "demo123" }),
+          body: JSON.stringify({ email: form.ownerEmail.toLowerCase(), password: form.ownerPassword }),
         });
         // small delay for celebration
         setTimeout(() => setSession(session), 1400);
       } catch (e: any) {
-        toast.error("ورود خودکار ناموفق بود. لطفاً دستی وارد شوید.", {
-          description: `رمز عبور: demo123`,
-        });
+        toast.error("ورود خودکار ناموفق بود. لطفاً دستی وارد شوید.");
         setTimeout(() => setView("login"), 1800);
       }
     } catch (e: any) {
@@ -548,27 +549,23 @@ export function SignupPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">رمز عبور</Label>
+                    <Label htmlFor="ownerPassword">رمز عبور *</Label>
                     <div className="relative">
                       <Lock className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                       <Input
-                        id="password"
-                        type="text"
+                        id="ownerPassword"
+                        type="password"
                         dir="ltr"
-                        value="demo123"
-                        disabled
+                        value={form.ownerPassword}
+                        onChange={(e) => update("ownerPassword", e.target.value)}
+                        placeholder="حداقل ۶ کاراکتر"
                         className="pr-9 text-left"
                       />
                     </div>
+                    {form.ownerPassword && form.ownerPassword.length < 6 && (
+                      <p className="text-[11px] text-destructive">حداقل ۶ کاراکتر وارد کنید</p>
+                    )}
                   </div>
-                  <Alert>
-                    <Sparkles className="size-4" />
-                    <AlertTitle>اطلاعیه دمو</AlertTitle>
-                    <AlertDescription>
-                      در این نسخه نمایشی، رمز عبور پیش‌فرض <code className="font-mono bg-muted px-1 rounded">demo123</code> برای
-                      حساب جدید شما تنظیم می‌شود. می‌توانید پس از ورود به پنل آن را تغییر دهید.
-                    </AlertDescription>
-                  </Alert>
 
                   {/* Summary */}
                   <div className="rounded-xl border bg-muted/30 p-4 space-y-2 text-sm">
