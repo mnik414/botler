@@ -11,7 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  LayoutDashboard, Building2, CreditCard, Wallet, Cpu, Sparkles, LogOut, Menu, ShieldAlert, Moon, Sun, ChevronLeft, UserPlus, Receipt,
+  LayoutDashboard, Building2, CreditCard, Wallet, Cpu, Sparkles, LogOut, Menu, ShieldAlert, Moon, Sun, ChevronLeft, UserPlus, Receipt, Lock,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
@@ -23,6 +23,11 @@ import { AdminTokens } from "./tokens";
 import { AdminLeads } from "./leads";
 import { AdminPayments } from "./payments";
 import { AdminAiProviders } from "./ai-providers";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { api } from "@/lib/api-client";
 
 const NAV = [
   { key: "overview", label: "نمای کلی", icon: LayoutDashboard, title: "نمای کلی پلتفرم" },
@@ -40,6 +45,10 @@ export function AdminView() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [changingPassword, setChangingPassword] = React.useState(false);
 
   // Safe-mount flag for theme toggle (avoids hydration mismatch)
   React.useEffect(() => {
@@ -134,6 +143,10 @@ export function AdminView() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => { setPasswordDialogOpen(true); setCurrentPassword(""); setNewPassword(""); }}>
+              <Lock className="size-4" /> تغییر رمز عبور
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive gap-2">
               <LogOut className="size-4" />
               خروج از حساب
@@ -220,6 +233,76 @@ export function AdminView() {
           </motion.div>
         </main>
       </div>
+
+      {/* Change password dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>تغییر رمز عبور</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!currentPassword || newPassword.length < 6) {
+                toast.error("رمز عبور جدید باید حداقل ۶ کاراکتر باشد");
+                return;
+              }
+              setChangingPassword(true);
+              try {
+                await api("/api/auth/change-password", {
+                  method: "POST",
+                  body: JSON.stringify({ currentPassword, newPassword }),
+                });
+                toast.success("رمز عبور با موفقیت تغییر کرد");
+                setPasswordDialogOpen(false);
+                setCurrentPassword("");
+                setNewPassword("");
+              } catch (err: any) {
+                toast.error(err.message || "تغییر رمز عبور ناموفق بود");
+              } finally {
+                setChangingPassword(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="admin-current-password">رمز عبور فعلی</Label>
+              <Input
+                id="admin-current-password"
+                type="password"
+                dir="ltr"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+                className="text-left"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-new-password">رمز عبور جدید</Label>
+              <Input
+                id="admin-new-password"
+                type="password"
+                dir="ltr"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="حداقل ۶ کاراکتر"
+                className="text-left"
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setPasswordDialogOpen(false)}>
+                انصراف
+              </Button>
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword ? "در حال تغییر…" : "تغییر رمز عبور"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
