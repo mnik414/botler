@@ -1,8 +1,8 @@
 FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
-COPY package.json bun.lock ./
-RUN npm install -g bun && bun install --frozen-lockfile
+COPY package.json ./
+RUN npm install -g bun && bun install
 
 FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
