@@ -20,11 +20,15 @@ The Prisma schema is pushed automatically at build time. If you need to apply sc
 docker compose exec botler npx prisma db push
 ```
 
-### 3. Seed demo data
+### 3. Push the schema and seed demo data
 
-On a **fresh (empty) database**, seed sample tenants, plans, and users:
+On a **fresh (empty) database**, first create the tables, then seed:
 
 ```bash
+# Create/update database tables
+docker compose exec botler npx prisma db push
+
+# Seed sample tenants, plans, and users
 docker compose exec botler npx tsx prisma/seed.ts
 ```
 
@@ -49,7 +53,14 @@ This creates:
 To wipe all data and re-seed:
 
 ```bash
-docker compose exec botler npx tsx prisma/seed.ts --force
+docker compose exec botler npx prisma db push --force-reset
+docker compose exec botler npx tsx prisma/seed.ts
+```
+
+Or reset + seed in one shot:
+
+```bash
+docker compose exec botler npx prisma db push --force-reset && docker compose exec botler npx tsx prisma/seed.ts
 ```
 
 ---
