@@ -91,7 +91,9 @@ export async function POST(req: Request) {
         if (!pid) throw new Error("ارائه‌دهنده یافت نشد");
         const p = await db.aiProvider.findFirst({ where: { id: pid, tenantId } });
         if (!p) throw new Error("یافت نشد");
+        console.log(`[Bulk Test] Testing provider: tenantId=${tenantId}, providerId=${p.id}, type=${p.type}, model=${p.model}`);
         const result = await testProvider({ id: p.id, type: p.type as any, apiKey: p.apiKey, baseUrl: p.baseUrl, model: p.model });
+        console.log(`[Bulk Test] Result: ok=${result.ok}, reply=${result.reply?.slice(0, 50) || "(empty)"}, error=${result.error || "(none)"}`);
         await db.aiProvider.update({ where: { id: p.id }, data: { lastTestedAt: new Date(), lastTestOk: result.ok } });
         if (!result.ok) throw new Error(result.error || "تست ناموفق");
       } else {

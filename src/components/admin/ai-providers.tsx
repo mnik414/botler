@@ -43,11 +43,12 @@ interface ProviderTypeMeta { code: string; label: string; desc: string; defaultM
 interface TenantRow { id: string; name: string; slug: string; businessType: string; }
 
 const TYPE_LABELS: Record<string, string> = {
-  zai: "پلتفرم پیش‌فرض", openai: "OpenAI", anthropic: "Anthropic", gemini: "Google Gemini", custom: "سفارشی",
+  zai: "پلتفرم پیش‌فرض", openai: "OpenAI", openrouter: "OpenRouter", anthropic: "Anthropic", gemini: "Google Gemini", custom: "سفارشی",
 };
 const TYPE_COLORS: Record<string, string> = {
   zai: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
   openai: "bg-teal-500/15 text-teal-600 border-teal-500/30",
+  openrouter: "bg-orange-500/15 text-orange-600 border-orange-500/30",
   anthropic: "bg-amber-500/15 text-amber-600 border-amber-500/30",
   gemini: "bg-sky-500/15 text-sky-600 border-sky-500/30",
   custom: "bg-violet-500/15 text-violet-600 border-violet-500/30",
@@ -56,6 +57,7 @@ const TYPE_COLORS: Record<string, string> = {
 // Local fallback so provider type list is always available (even in bulk mode where no tenant is selected)
 const FALLBACK_PROVIDER_TYPES: ProviderTypeMeta[] = [
   { code: "openai", label: "OpenAI", desc: "GPT-4o, GPT-4o-mini, GPT-4 Turbo و سایر مدل‌های OpenAI", defaultModel: "gpt-4o-mini", needsBaseUrl: false, needsKey: true },
+  { code: "openrouter", label: "OpenRouter", desc: "OpenRouter: دسترسی به ۲۰۰+ مدل از طریق یک API (Claude, GPT, Gemini, Llama و ...)", defaultModel: "openai/gpt-4o-mini", needsBaseUrl: false, needsKey: true },
   { code: "anthropic", label: "Anthropic (Claude)", desc: "Claude 3.5 Sonnet, Haiku, Opus", defaultModel: "claude-3-5-sonnet-20241022", needsBaseUrl: false, needsKey: true },
   { code: "gemini", label: "Google Gemini", desc: "Gemini 1.5 Pro / Flash", defaultModel: "gemini-1.5-flash", needsBaseUrl: false, needsKey: true },
   { code: "custom", label: "سازگار با OpenAI (سفارشی)", desc: "هر endpoint سازگار با OpenAI: Azure، OpenRouter، vLLM، Ollama، LM Studio", defaultModel: "llama3.1", needsBaseUrl: true, needsKey: true },
@@ -637,6 +639,7 @@ function BulkCreateDialog({
 
   const apiKeyPlaceholder: Record<string, string> = {
     openai: "sk-proj-...",
+    openrouter: "sk-or-v1-...",
     anthropic: "sk-ant-...",
     gemini: "AIza...",
     custom: "کلید API شما",
@@ -895,7 +898,7 @@ function ProviderFormDialog({
   };
 
   const apiKeyPlaceholder: Record<string, string> = {
-    openai: "sk-proj-...", anthropic: "sk-ant-...", gemini: "AIza...", custom: "کلید API شما",
+    openai: "sk-proj-...", openrouter: "sk-or-v1-...", anthropic: "sk-ant-...", gemini: "AIza...", custom: "کلید API شما",
   };
 
   return (

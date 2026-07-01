@@ -22,11 +22,12 @@ interface ProviderRow {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  zai: "پلتفرم پیش‌فرض", openai: "OpenAI", anthropic: "Anthropic", gemini: "Google Gemini", custom: "سفارشی",
+  zai: "پلتفرم پیش‌فرض", openai: "OpenAI", openrouter: "OpenRouter", anthropic: "Anthropic", gemini: "Google Gemini", custom: "سفارشی",
 };
 const TYPE_COLORS: Record<string, string> = {
   zai: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
   openai: "bg-teal-500/15 text-teal-600 border-teal-500/30",
+  openrouter: "bg-orange-500/15 text-orange-600 border-orange-500/30",
   anthropic: "bg-amber-500/15 text-amber-600 border-amber-500/30",
   gemini: "bg-sky-500/15 text-sky-600 border-sky-500/30",
   custom: "bg-violet-500/15 text-violet-600 border-violet-500/30",
