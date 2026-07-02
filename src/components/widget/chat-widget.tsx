@@ -287,7 +287,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
           style={{ background: accent }}
         >
           <MessageSquare className="size-5" />
-          <span className="text-sm font-medium">گفتگو با منشی</span>
+          <span className="text-sm font-medium">گفتگوی تصادفی!</span>
         </button>
       )}
     </>
