@@ -55,7 +55,10 @@ export async function POST(req: Request) {
   if (!adapter) return NextResponse.json({ error: "platform not supported" }, { status: 400 });
 
   // Generate webhook URL + secret
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://your-platform.com";
+  // Use host header from request, env var, or fallback to localhost
+  const host = req.headers.get("host") || process.env.NEXT_PUBLIC_BASE_URL || "localhost:3000";
+  const protocol = host?.includes("localhost") || host?.includes("127.0.0.1") ? "http" : "https";
+  const origin = `${protocol}://${host}`;
   const webhookSecret = `${platform}-${tenantId.slice(0, 8)}-${Math.random().toString(36).slice(2, 12)}`;
   const webhookUrl = `${origin}/api/channels/webhook/${platform}?tenantId=${tenantId}`;
 

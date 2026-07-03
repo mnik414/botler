@@ -126,13 +126,14 @@ model Agent {
 // ────────────────────────────────────────────────────────────
 model AiProvider {
   id          String   @id @default(cuid())
-  tenantId    String   // owner tenant (platform default if matches a flagged tenant)
+  tenantId    String?  // null = global provider (available to all tenants)
   name        String   // display name, e.g. "OpenAI تولیدی"
-  type        String   // zai | openai | anthropic | gemini | custom
+  type        String   // zai | openai | anthropic | gemini | openrouter | custom
   apiKey      String   // secret (stored; in production would be encrypted)
   baseUrl     String   @default("") // custom base URL for openai-compatible / custom
   model       String   // model id, e.g. gpt-4o, claude-3-5-sonnet-20241022, gemini-1.5-pro
   isActive    Boolean  @default(true)
+  isGlobal    Boolean  @default(false) // true = shared across all tenants
   lastTestedAt DateTime?
   lastTestOk  Boolean?
   createdAt   DateTime @default(now())
@@ -142,6 +143,7 @@ model AiProvider {
 
   @@index([tenantId])
   @@index([type])
+  @@index([isGlobal])
 }
 
 

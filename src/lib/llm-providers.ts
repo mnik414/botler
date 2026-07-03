@@ -122,7 +122,12 @@ async function callOpenAICompatible(
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     console.error(`[openai-compat] Error response body:`, txt);
-    throw new Error(`OpenAI-compatible API error ${res.status}: ${txt.slice(0, 500)}`);
+    // Provide clearer error for OpenRouter model ID issues
+    let errorMsg = `OpenAI-compatible API error ${res.status}: ${txt.slice(0, 500)}`;
+    if (res.status === 400 && txt.includes("not a valid model")) {
+      errorMsg = `شناسه مدل "${provider.model}" برای این ارائه‌دهنده معتبر نیست. مدل‌های معتبر OpenRouter: deepseek/deepseek-chat, openai/gpt-4o, anthropic/claude-3-5-sonnet, google/gemini-1.5-flash و ...`;
+    }
+    throw new Error(errorMsg);
   }
   const data = await res.json();
   console.log(`[openai-compat] Response body:`, JSON.stringify(data).slice(0, 1000));

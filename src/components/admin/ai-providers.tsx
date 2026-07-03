@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   Bot, Plus, Trash2, CheckCircle2, XCircle, Loader2, Zap, Key, Globe, Cpu, Power, Lock, Building2,
-  Layers, CheckSquare, Square, AlertCircle, Info,
+  Layers, CheckSquare, Square, AlertCircle, Info, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
@@ -37,7 +37,7 @@ function InlineEmptyState({ icon: Icon, title, description }: { icon: LucideIcon
 
 interface ProviderRow {
   id: string; tenantId: string; name: string; type: string; baseUrl: string; model: string;
-  isActive: boolean; lastTestedAt: string | null; lastTestOk: boolean | null; createdAt: string;
+  isActive: boolean; isGlobal: boolean; lastTestedAt: string | null; lastTestOk: boolean | null; createdAt: string;
 }
 interface ProviderTypeMeta { code: string; label: string; desc: string; defaultModel: string; needsBaseUrl: boolean; needsKey: boolean; }
 interface TenantRow { id: string; name: string; slug: string; businessType: string; }
@@ -74,6 +74,8 @@ export function AdminAiProviders() {
   const [testingId, setTestingId] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [activatingId, setActivatingId] = React.useState<string | null>(null);
+  const [editProvider, setEditProvider] = React.useState<ProviderRow | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
 
   // Auto-select first tenant
   React.useEffect(() => {
@@ -146,6 +148,11 @@ export function AdminAiProviders() {
       toast.success("حذف شد."); providersReq.reload();
     } catch (e: any) { toast.error(e.message); }
     finally { setDeletingId(null); }
+  };
+
+  const editSingle = async (provider: ProviderRow) => {
+    setEditProvider(provider);
+    setEditDialogOpen(true);
   };
 
   if (tenantsReq.loading) return <div className="space-y-4"><CardSkeletons count={3} /><Card className="p-5"><Skeleton className="h-40 w-full" /></Card></div>;
@@ -308,6 +315,7 @@ export function AdminAiProviders() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium text-sm">{p.name}</span>
                               <Badge variant="outline" className={`text-[10px] ${TYPE_COLORS[p.type]}`}>{TYPE_LABELS[p.type] || p.type}</Badge>
+                              {p.isGlobal && <Badge variant="secondary" className="text-[10px] gap-0.5"><Globe className="size-2.5" /> سراسری</Badge>}
                               {isActive && <Badge className="text-[10px] gap-0.5"><CheckCircle2 className="size-2.5" /> فعال</Badge>}
                               {p.lastTestOk === true && <Badge variant="outline" className="text-[10px] gap-0.5 border-emerald-500/30 text-emerald-600"><CheckCircle2 className="size-2.5" /> تست موفق</Badge>}
                               {p.lastTestOk === false && <Badge variant="outline" className="text-[10px] gap-0.5 border-rose-500/30 text-rose-600"><XCircle className="size-2.5" /> تست ناموفق</Badge>}
@@ -322,6 +330,10 @@ export function AdminAiProviders() {
                             <Button variant="outline" size="sm" className="gap-1.5" disabled={testingId === p.id} onClick={() => testProviderSingle(p.id)}>
                               {testingId === p.id ? <Loader2 className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
                               <span className="hidden sm:inline">تست</span>
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => editSingle(p)}>
+                              <Pencil className="size-3.5" />
+                              <span className="hidden sm:inline">ویرایش</span>
                             </Button>
                             {!isActive && (
                               <Button size="sm" className="gap-1.5" disabled={activatingId === p.id} onClick={() => activateSingle(p.id)}>
@@ -339,6 +351,23 @@ export function AdminAiProviders() {
                   </div>
                 )}
               </SectionCard>
+
+              {/* Edit dialog */}
+              <ProviderFormDialog
+                key={editProvider?.id || "edit"}
+                open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) setEditProvider(null); }}
+                providerTypes={providerTypes}
+                title={`ویرایش ${editProvider?.name || ""}`}
+                submitLabel="ذخیره تغییرات"
+                initial={editProvider || undefined}
+                onSubmit={async (data) => {
+                  if (!editProvider) return;
+                  await api(`/api/ai-providers/${editProvider.id}?tenantId=${selectedTenant}`, {
+                    method: "PATCH", body: JSON.stringify(data),
+                  });
+                  toast.success("به‌روزرسانی شد."); setEditDialogOpen(false); setEditProvider(null); providersReq.reload();
+                }}
+              />
             </>
           )}
         </>
@@ -545,7 +574,7 @@ function BulkCreateDialog({
 }: {
   open: boolean; onOpenChange: (o: boolean) => void;
   providerTypes: ProviderTypeMeta[]; tenantCount: number;
-  onSubmit: (data: { name: string; type: string; apiKey: string; baseUrl: string; model: string; activateAfterCreate: boolean }) => Promise<void>;
+  onSubmit: (data: { name: string; type: string; apiKey: string; baseUrl: string; model: string; activateAfterCreate: boolean; isGlobal: boolean }) => Promise<void>;
 }) {
   const [type, setType] = React.useState("openai");
   const [name, setName] = React.useState("");
@@ -553,6 +582,7 @@ function BulkCreateDialog({
   const [baseUrl, setBaseUrl] = React.useState("");
   const [model, setModel] = React.useState("");
   const [activateAfterCreate, setActivateAfterCreate] = React.useState(true);
+  const [isGlobal, setIsGlobal] = React.useState(false);
   const [useCustomBaseUrl, setUseCustomBaseUrl] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
@@ -578,7 +608,7 @@ function BulkCreateDialog({
 
   const reset = () => {
     setType("openai"); setName(""); setApiKey(""); setBaseUrl(""); setModel("");
-    setActivateAfterCreate(true); setUseCustomBaseUrl(false); setTestResult(null);
+    setActivateAfterCreate(true); setIsGlobal(false); setUseCustomBaseUrl(false); setTestResult(null);
   };
 
   const validate = (): string | null => {
@@ -604,6 +634,7 @@ function BulkCreateDialog({
         baseUrl: baseUrl.trim(),
         model: model.trim() || pt?.defaultModel || "",
         activateAfterCreate,
+        isGlobal,
       });
       reset();
     } catch (e: any) { toast.error(e.message); }
@@ -741,6 +772,15 @@ function BulkCreateDialog({
           <Checkbox checked={activateAfterCreate} onCheckedChange={(v) => setActivateAfterCreate(!!v)} />
         </div>
 
+        {/* Global provider toggle */}
+        <div className="flex items-center justify-between rounded-lg border p-3 bg-violet-500/5 border-violet-500/20">
+          <div>
+            <Label className="cursor-pointer">ارائه‌دهنده سراسری (global)</Label>
+            <p className="text-[10px] text-muted-foreground mt-0.5">ارائه‌دهنده سراسری برای همه کسب‌وکارها قابل مشاهده و استفاده است. نیازی به ایجاد مجدد برای هر کسب‌وکار نیست.</p>
+          </div>
+          <Checkbox checked={isGlobal} onCheckedChange={(v) => setIsGlobal(!!v)} />
+        </div>
+
         {/* Test result */}
         {testResult && (
           <div className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${testResult.ok ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/30" : "bg-rose-500/10 text-rose-700 border border-rose-500/30"}`}>
@@ -844,21 +884,24 @@ function BulkNameTypeDialog({
 // ────────────────────────────────────────────────────────────
 function ProviderFormDialog({
   open, onOpenChange, providerTypes, title, onSubmit, submitLabel,
+  initial,
 }: {
   open: boolean; onOpenChange: (o: boolean) => void;
   providerTypes: ProviderTypeMeta[]; title: string;
   onSubmit: (data: { name: string; type: string; apiKey: string; baseUrl: string; model: string }) => Promise<void>;
   submitLabel?: string;
+  initial?: ProviderRow;
 }) {
-  const [type, setType] = React.useState("openai");
-  const [name, setName] = React.useState("");
+  const [type, setType] = React.useState(initial?.type || "openai");
+  const [name, setName] = React.useState(initial?.name || "");
   const [apiKey, setApiKey] = React.useState("");
-  const [baseUrl, setBaseUrl] = React.useState("");
-  const [model, setModel] = React.useState("");
-  const [useCustomBaseUrl, setUseCustomBaseUrl] = React.useState(false);
+  const [baseUrl, setBaseUrl] = React.useState(initial?.baseUrl || "");
+  const [model, setModel] = React.useState(initial?.model || "");
+  const [useCustomBaseUrl, setUseCustomBaseUrl] = React.useState(!!(initial?.baseUrl && !providerTypes.find((p) => p.code === initial?.type)?.needsBaseUrl));
   const [submitting, setSubmitting] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
 
+  const isEditing = !!initial;
   const pt = providerTypes.find((p) => p.code === type);
   const showBaseUrl = !!pt?.needsBaseUrl || useCustomBaseUrl;
   const showApiKey = !!pt?.needsKey;
@@ -867,29 +910,46 @@ function ProviderFormDialog({
     if (pt) { if (!model) setModel(pt.defaultModel); if (!name) setName(pt.label); }
   }, [type]);
 
-  const reset = () => { setType("openai"); setName(""); setApiKey(""); setBaseUrl(""); setModel(""); setUseCustomBaseUrl(false); };
+  React.useEffect(() => {
+    if (!isEditing) {
+      setApiKey("");
+    }
+  }, [type]);
+
+  const reset = () => {
+    if (initial) {
+      setType(initial.type); setName(initial.name); setApiKey(""); setBaseUrl(initial.baseUrl);
+      setModel(initial.model); setUseCustomBaseUrl(!!(initial.baseUrl && !providerTypes.find((p) => p.code === initial.type)?.needsBaseUrl));
+    } else {
+      setType("openai"); setName(""); setApiKey(""); setBaseUrl(""); setModel(""); setUseCustomBaseUrl(false);
+    }
+  };
 
   const submit = async () => {
     if (!name.trim()) { toast.error("نام الزامی است"); return; }
-    if (showApiKey && !apiKey.trim()) { toast.error("کلید API الزامی است"); return; }
+    if (showApiKey && !apiKey.trim() && !isEditing) { toast.error("کلید API الزامی است"); return; }
     if (showBaseUrl && !baseUrl.trim()) { toast.error("Base URL الزامی است"); return; }
     if (showBaseUrl && baseUrl.trim()) {
       try { new URL(baseUrl.trim()); } catch { toast.error("آدرس Base URL معتبر نیست"); return; }
     }
     setSubmitting(true);
     try {
-      await onSubmit({ name: name.trim(), type, apiKey: apiKey.trim(), baseUrl: baseUrl.trim(), model: model.trim() || pt?.defaultModel || "" });
+      const payload: any = { name: name.trim(), type, baseUrl: baseUrl.trim(), model: model.trim() || pt?.defaultModel || "" };
+      if (apiKey.trim()) payload.apiKey = apiKey.trim();
+      await onSubmit(payload);
       reset();
     } catch (e: any) { toast.error(e.message); }
     finally { setSubmitting(false); }
   };
 
   const testInline = async () => {
-    if (showApiKey && !apiKey.trim()) { toast.error("ابتدا کلید API را وارد کنید"); return; }
+    if (showApiKey && !apiKey.trim() && !isEditing) { toast.error("ابتدا کلید API را وارد کنید"); return; }
     setTesting(true);
     try {
+      const payload: any = { type, baseUrl, model: model || pt?.defaultModel };
+      if (apiKey.trim()) payload.apiKey = apiKey.trim();
       const res = await api<{ ok: boolean; reply: string; error?: string }>("/api/ai-providers/test", {
-        method: "POST", body: JSON.stringify({ type, apiKey, baseUrl, model: model || pt?.defaultModel }),
+        method: "POST", body: JSON.stringify(payload),
       });
       if (res.ok) toast.success(`موفق! ${res.reply.slice(0, 50)}`);
       else toast.error(`ناموفق: ${res.error}`);
@@ -905,8 +965,8 @@ function ProviderFormDialog({
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
     <DialogContent className="max-w-lg">
       <DialogHeader>
-        <DialogTitle className="flex items-center gap-2"><Plus className="size-4" /> {title}</DialogTitle>
-        <DialogDescription>پیکربندی مدل یا API اختصاصی</DialogDescription>
+        <DialogTitle className="flex items-center gap-2">{isEditing ? <Pencil className="size-4" /> : <Plus className="size-4" />} {title}</DialogTitle>
+        <DialogDescription>{isEditing ? "ویرایش تنظیمات ارائه‌دهنده" : "پیکربندی مدل یا API اختصاصی"}</DialogDescription>
       </DialogHeader>
       <div className="space-y-3 max-h-[60vh] overflow-y-auto scroll-area pl-1">
         <div className="space-y-1.5">
@@ -925,8 +985,9 @@ function ProviderFormDialog({
         </div>
         {showApiKey && (
           <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5"><Key className="size-3" /> کلید API <span className="text-destructive">*</span></Label>
-            <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" dir="ltr" placeholder={apiKeyPlaceholder[type] || "sk-..."} className="font-mono text-left" />
+            <Label className="flex items-center gap-1.5"><Key className="size-3" /> کلید API {!isEditing && <span className="text-destructive">*</span>}</Label>
+            <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" dir="ltr" placeholder={isEditing ? "مقدار فعلی حفظ می‌شود (خالی بگذارید)" : apiKeyPlaceholder[type] || "sk-..."} className="font-mono text-left" />
+            {isEditing && <p className="text-[10px] text-muted-foreground">برای تغییر کلید، مقدار جدید را وارد کنید. اگر خالی بماند، کلید قبلی حفظ می‌شود.</p>}
           </div>
         )}
         {!pt?.needsBaseUrl && pt?.code !== "zai" && (
@@ -956,8 +1017,8 @@ function ProviderFormDialog({
           تست اتصال
         </Button>
         <Button onClick={submit} disabled={submitting} className="gap-1.5">
-          {submitting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          {submitLabel || "افزودن"}
+          {submitting ? <Loader2 className="size-4 animate-spin" /> : (isEditing ? <Pencil className="size-4" /> : <Plus className="size-4" />)}
+          {submitLabel || (isEditing ? "ذخیره تغییرات" : "افزودن")}
         </Button>
       </DialogFooter>
     </DialogContent>

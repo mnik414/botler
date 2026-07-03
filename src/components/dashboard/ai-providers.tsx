@@ -6,7 +6,7 @@ import { toFa, formatDate } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Bot, CheckCircle2, Cpu, Sparkles, Lock, ShieldCheck, XCircle, Info,
+  Bot, CheckCircle2, Cpu, Sparkles, Lock, ShieldCheck, XCircle, Info, Globe,
 } from "lucide-react";
 
 interface ProviderRow {
@@ -16,6 +16,7 @@ interface ProviderRow {
   baseUrl: string;
   model: string;
   isActive: boolean;
+  isGlobal: boolean;
   lastTestedAt: string | null;
   lastTestOk: boolean | null;
   createdAt: string;
@@ -110,6 +111,7 @@ export function AiProvidersTab({ tenantId }: { tenantId: string }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{p.name}</span>
                       <Badge variant="outline" className={`text-[10px] ${TYPE_COLORS[p.type]}`}>{TYPE_LABELS[p.type] || p.type}</Badge>
+                      {p.isGlobal && <Badge variant="secondary" className="text-[10px] gap-0.5"><Globe className="size-2.5" /> سراسری</Badge>}
                       {isActive && <Badge className="text-[10px] gap-0.5"><CheckCircle2 className="size-2.5" /> فعال</Badge>}
                       {p.lastTestOk === true && <Badge variant="outline" className="text-[10px] gap-0.5 border-emerald-500/30 text-emerald-600"><CheckCircle2 className="size-2.5" /> تست موفق</Badge>}
                       {p.lastTestOk === false && <Badge variant="outline" className="text-[10px] gap-0.5 border-rose-500/30 text-rose-600"><XCircle className="size-2.5" /> تست ناموفق</Badge>}

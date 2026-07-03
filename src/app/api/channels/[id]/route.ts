@@ -11,22 +11,42 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const conn = await db.channelConnection.findFirst({ where: { id, tenantId } });
   if (!conn) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  // For Telegram and Bale, delete the webhook
+  // For Telegram and Bale, delete the webhook on the Bot API
+  let webhookDeleted = true;
   if (conn.platform === "telegram" || conn.platform === "bale") {
     try {
       const creds = JSON.parse(conn.credentialsJson);
       if (creds.botToken) {
-        if (conn.platform === "telegram") {
-          await fetch(`https://api.telegram.org/bot${creds.botToken}/deleteWebhook`);
-        } else if (conn.platform === "bale") {
-          await fetch(`https://api.bale.ai/v1/bots/${creds.botToken}/deleteWebhook`, { method: "POST" });
+        const baseUrl = conn.platform === "telegram"
+          ? `https://api.telegram.org/bot${creds.botToken}/deleteWebhook`
+          : `https://api.bale.ai/v1/bots/${creds.botToken}/deleteWebhook`;
+
+        const res = await fetch(baseUrl, { method: "POST" });
+        const result = await res.json();
+        webhookDeleted = result.ok === true;
+        if (!webhookDeleted) {
+          console.error(`[Channel Disconnect] Failed to delete ${conn.platform} webhook:`, result.description || result);
         }
       }
-    } catch {}
+    } catch (e: any) {
+      console.error(`[Channel Disconnect] Error deleting ${conn.platform} webhook:`, e.message);
+      webhookDeleted = false;
+    }
   }
 
-  await db.channelConnection.update({ where: { id }, data: { status: "disconnected", credentialsJson: "{}" } });
-  return NextResponse.json({ ok: true, status: "disconnected" });
+  await db.channelConnection.update({
+    where: { id },
+    data: { status: "disconnected", credentialsJson: "{}", webhookUrl: "" },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    status: "disconnected",
+    webhookDeleted,
+    message: webhookDeleted
+      ? "کانال قطع شد"
+      : `کانال قطع شد اما وب‌هوک ${conn.platform} حذف نشد. ممکن است نیاز به حذف دستی از BotFather داشته باشید.`,
+  });
 }
 
 // PATCH /api/channels/[id]?tenantId= — update settings (autoReply, handoff)

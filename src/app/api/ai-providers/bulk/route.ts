@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   for (const tenantId of tenantIds) {
     try {
       if (action === "create") {
-        const { name, type, apiKey, baseUrl, model, activateAfterCreate } = body;
+        const { name, type, apiKey, baseUrl, model, activateAfterCreate, isGlobal } = body;
         if (!name || !type) throw new Error("name و type الزامی است");
         const pt = PROVIDER_TYPES.find((p) => p.code === type);
         if (!pt) throw new Error("نوع نامعتبر");
@@ -51,6 +51,7 @@ export async function POST(req: Request) {
               tenantId, name: String(name).trim(), type,
               apiKey: apiKey || "", baseUrl: baseUrl || defaultBaseUrl(type),
               model: model || pt.defaultModel, isActive: true,
+              isGlobal: isGlobal || false,
             },
           });
           providerId = created.id;

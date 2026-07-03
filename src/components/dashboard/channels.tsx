@@ -64,8 +64,14 @@ export function ChannelsTab({ tenantId }: { tenantId: string }) {
 
   const disconnect = async (conn: any) => {
     try {
-      await api(`/api/channels/${conn.id}?tenantId=${tenantId}`, { method: "DELETE" });
-      toast.success("کانال قطع شد.");
+      const res = await api<{ ok: boolean; status: string; webhookDeleted: boolean; message: string }>(
+        `/api/channels/${conn.id}?tenantId=${tenantId}`, { method: "DELETE" }
+      );
+      if (res.webhookDeleted) {
+        toast.success("کانال قطع شد.");
+      } else {
+        toast.warning(res.message);
+      }
       reload();
     } catch (e: any) { toast.error(e.message); }
   };
