@@ -19,7 +19,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       if (creds.botToken) {
         const baseUrl = conn.platform === "telegram"
           ? `https://api.telegram.org/bot${creds.botToken}/deleteWebhook`
-          : `https://api.bale.ai/v1/bots/${creds.botToken}/deleteWebhook`;
+          : `https://tapi.bale.ai/bot${creds.botToken}/deleteWebhook`;
 
         const res = await fetch(baseUrl, { method: "POST" });
         const result = await res.json();

@@ -135,10 +135,10 @@ const BaleAdapter: ChannelAdapter = {
   async sendMessage(creds: any, recipientId: string, text: string) {
     try {
       // Bale Bot API is very similar to Telegram Bot API
-      const res = await fetch(`https://api.bale.ai/v1/bots/${creds.botToken}/sendMessage`, {
+      const res = await fetch(`https://tapi.bale.ai/bot${creds.botToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: recipientId, text, parse_mode: "HTML" }),
+        body: JSON.stringify({ chat_id: recipientId, text }),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
@@ -159,10 +159,10 @@ const BaleAdapter: ChannelAdapter = {
   // Bale-specific: set webhook on save (similar to Telegram)
   async setWebhook(botToken: string, webhookUrl: string, secret: string) {
     try {
-      const res = await fetch(`https://api.bale.ai/v1/bots/${botToken}/setWebhook`, {
+      const res = await fetch(`https://tapi.bale.ai/bot${botToken}/setWebhook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: webhookUrl, secret_token: secret }),
+        body: JSON.stringify({ url: webhookUrl }),
       });
       return res.ok;
     } catch { return false; }

@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       } else if (conn.platform === "bale") {
         // Bale Bot API may not support getMe; try getWebhookInfo instead
         try {
-          const res = await fetch(`https://api.bale.ai/v1/bots/${creds.botToken}/getWebhookInfo`);
+          const res = await fetch(`https://tapi.bale.ai/bot${creds.botToken}/getWebhookInfo`);
           const text = await res.text();
           const data = JSON.parse(text);
           if (data.ok) {
