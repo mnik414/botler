@@ -18,37 +18,36 @@ import { WidgetDemoPage } from "@/components/widget/widget-demo";
 import { FloatingWidget } from "@/components/widget/chat-widget";
 import { Sparkles } from "lucide-react";
 
+function parseViewFromUrl(): { view: string; tenantSlug?: string } {
+  if (typeof window === "undefined") return { view: "landing" };
+  const params = new URLSearchParams(window.location.search);
+  const viewParam = params.get("view");
+  const tenantSlug = params.get("tenant") || params.get("business");
+  const ref = params.get("ref");
+  const embed = params.get("embed");
+
+  if (ref) return { view: "referral" };
+  if (embed === "1" && params.get("tenantId")) return { view: "landing" };
+  if (tenantSlug) return { view: "business", tenantSlug };
+  if (viewParam && ["pricing", "login", "signup", "widget-demo", "referral", "track", "dashboard", "admin", "operator"].includes(viewParam)) {
+    return { view: viewParam };
+  }
+  return { view: "landing" };
+}
+
 export default function Home() {
   const { view, session, activeTenantId, setView, setActiveTenant, setReferralCode } = useApp();
   const [booting, setBooting] = useState(true);
 
-  // Initial boot
+  // Initial boot: parse URL and set view
   useEffect(() => {
-    setBooting(false);
-  }, []);
-
-  // Handle URL params: ?ref=CODE (referral landing), ?embed=1&tenantId=ID (widget iframe),
-  // ?tenant=SLUG (direct business profile). This makes the static /widget.js + shareable links work.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-    const embed = params.get("embed");
-    const tenantId = params.get("tenantId");
-    const tenantSlug = params.get("tenant") || params.get("business");
-
-    if (ref) {
-      setReferralCode(ref.toUpperCase());
+    const { view: initialView, tenantSlug } = parseViewFromUrl();
+    if (initialView === "referral") {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (ref) setReferralCode(ref.toUpperCase());
       setView("referral");
-      return;
-    }
-    if (embed === "1" && tenantId) {
-      // Embedded widget mode — set active tenant, render only the widget (no shell)
-      setActiveTenant(tenantId);
-      return;
-    }
-    if (tenantSlug) {
-      // Resolve slug → tenant id and open business profile
+    } else if (initialView === "business" && tenantSlug) {
       (async () => {
         try {
           const items = await api<any[]>("/api/marketplace");
@@ -59,8 +58,34 @@ export default function Home() {
           }
         } catch {}
       })();
+    } else if (initialView !== "landing" && initialView !== view) {
+      setView(initialView as any);
     }
-  }, [setReferralCode, setView, setActiveTenant]);
+    setBooting(false);
+  }, []);
+
+  // Handle popstate (browser back/forward)
+  useEffect(() => {
+    const onPopState = () => {
+      const { view: newView, tenantSlug } = parseViewFromUrl();
+      if (newView === "business" && tenantSlug) {
+        (async () => {
+          try {
+            const items = await api<any[]>("/api/marketplace");
+            const found = items.find((m) => m.slug === tenantSlug);
+            if (found) {
+              setActiveTenant(found.id, found.slug);
+              setView("business");
+            }
+          } catch {}
+        })();
+      } else if (newView !== view) {
+        setView(newView as any);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [view]);
 
   if (booting) {
     return (
@@ -75,7 +100,7 @@ export default function Home() {
     );
   }
 
-  // Embedded widget mode: render ONLY the widget full-viewport (for the iframe in widget.js)
+  // Embedded widget mode: render ONLY the widget full-viewport
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const isEmbedded = params?.get("embed") === "1" && activeTenantId;
   if (isEmbedded) {

@@ -28,7 +28,8 @@
         return s.src.replace(/\/widget\.js(\?.*)?$/, "");
       }
     }
-    return "";
+    // Fallback: use the current page origin
+    return window.location.origin;
   }
 
   function build() {

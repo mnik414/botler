@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Copy, Check, Globe, Instagram, MessageSquare, Phone, Mic,
-  Palette, Loader2, ExternalLink, Smartphone,
+  Palette, Loader2, ExternalLink, Smartphone, AlertCircle,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useApp } from "@/store/app-store";
@@ -64,7 +64,7 @@ export function WidgetTab({ tenantId }: { tenantId: string }) {
   if (loading) return <LoadingBlock lines={4} />;
   if (error || !tenant) return <ErrorBlock message={error || undefined} onRetry={reload} />;
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://your-platform.com";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const embedCode = `<!-- منشی هوشمند ${tenant.name} -->
 <script src="${origin}/widget.js" async></script>
 <script>
@@ -99,7 +99,7 @@ export function WidgetTab({ tenantId }: { tenantId: string }) {
     }
   };
 
-  const subdomain = `${tenant.slug}.receptionist.ai`;
+  const subdomain = `${origin}`;
 
   return (
     <div className="space-y-5">
@@ -121,15 +121,25 @@ export function WidgetTab({ tenantId }: { tenantId: string }) {
             </div>
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border">
               <ExternalLink className="size-4 text-muted-foreground" />
-              <code className="text-sm font-mono flex-1" dir="ltr">receptionist.ai/{tenant.slug}</code>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                onClick={() => { navigator.clipboard.writeText(`receptionist.ai/${tenant.slug}`); toast.success("کپی شد."); }}
-              >
-                <Copy className="size-3.5" />
-              </Button>
+              <code className="text-sm font-mono flex-1" dir="ltr">{origin}/{tenant.slug}</code>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => { window.open(`/${tenant.slug}`, "_blank"); }}
+                >
+                  <ExternalLink className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => { navigator.clipboard.writeText(`${origin}/${tenant.slug}`); toast.success("کپی شد."); }}
+                >
+                  <Copy className="size-3.5" />
+                </Button>
+              </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
               کاربران می‌توانند از این آدرس‌ها مستقیماً با منشی هوشمند شما گفتگو کنند.
@@ -147,9 +157,45 @@ export function WidgetTab({ tenantId }: { tenantId: string }) {
             </Button>
           }
         >
-          <pre dir="ltr" className="bg-muted/40 border rounded-lg p-3 text-[11px] leading-5 overflow-x-auto max-h-48 font-mono">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <Globe className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="text-xs leading-5 text-muted-foreground">
+                <strong>نصب آسان — فقط کافی است کد زیر را در وب‌سایت خود قرار دهید.</strong>
+                <br />
+                ویجت به‌صورت خودکار در گوشه صفحه نمایش داده می‌شود. نیازی به تنظیمات اضافی نیست.
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">راهنمای گام به گام:</Label>
+              <ol className="text-xs text-muted-foreground space-y-2 list-decimal pr-4">
+                <li>روی دکمه <strong>کپی کد</strong> کلیک کنید</li>
+                <li>وارد پنل مدیریت وب‌سایت خود شوید (مثل وردپرس، ویرایشگر کد HTML، یا سرویس سازنده وب‌سایت)</li>
+                <li>کد را در تگ <code className="bg-muted px-1 rounded font-mono text-[10px]">&lt;head&gt;</code> یا انتهای <code className="bg-muted px-1 rounded font-mono text-[10px]">&lt;body&gt;</code> قرار دهید
+                  <br />
+                  <span className="text-amber-600">در وردپرس: از افزونه "Insert Headers and Footers" یا "Elementor" &gt; Custom Code استفاده کنید</span>
+                </li>
+                <li>تغییرات را ذخیره کنید و صفحه وب‌سایت خود را باز کنید</li>
+                <li>ویجت منشی هوشمند در گوشه صفحه نمایش داده می‌شود 🎉</li>
+              </ol>
+            </div>
+
+            <pre dir="ltr" className="bg-muted/40 border rounded-lg p-3 text-[11px] leading-5 overflow-x-auto max-h-48 font-mono">
 {embedCode}
-          </pre>
+            </pre>
+
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.open("/?embed=1&tenantId=" + tenantId + "&accent=" + accent, "_blank")}>
+                <ExternalLink className="size-3.5" /> تست ویجت
+              </Button>
+            </div>
+
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-amber-700">
+              <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+              <span>اگر ویجت نمایش داده نشد، مطمئن شوید کد را درست قرار داده‌اید و وب‌سایت شما از iframe و JavaScript پشتیبانی می‌کند.</span>
+            </div>
+          </div>
         </SectionCard>
       </div>
 

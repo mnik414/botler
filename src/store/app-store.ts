@@ -9,13 +9,40 @@ export type View =
   | "pricing"
   | "login"
   | "signup"
-  | "dashboard" // business owner
-  | "admin" // super admin
+  | "dashboard"
+  | "admin"
   | "operator"
   | "widget-demo"
-  | "business" // public business profile (subdomain experience)
-  | "referral" // referral landing page
-  | "track"; // end-user request tracking
+  | "business"
+  | "referral"
+  | "track";
+
+// Map view → URL path (for browser history sync)
+const VIEW_PATHS: Record<string, string> = {
+  landing: "/",
+  marketplace: "/",
+  pricing: "/?view=pricing",
+  login: "/?view=login",
+  signup: "/?view=signup",
+  "widget-demo": "/?view=widget-demo",
+  business: "", // dynamic: uses /?tenant=SLUG
+  referral: "/?view=referral",
+  track: "/?view=track",
+  dashboard: "/?view=dashboard",
+  admin: "/?view=admin",
+  operator: "/?view=operator",
+};
+
+export function updateUrl(view: View, slug?: string | null) {
+  if (typeof window === "undefined") return;
+  let path: string;
+  if (view === "business" && slug) {
+    path = `/?tenant=${encodeURIComponent(slug)}`;
+  } else {
+    path = VIEW_PATHS[view] || "/";
+  }
+  window.history.pushState({ view, slug }, "", path);
+}
 
 interface AppState {
   view: View;
@@ -38,7 +65,7 @@ interface AppState {
 
 export const useApp = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       view: "landing",
       session: null,
       activeTenantId: null,
@@ -47,14 +74,24 @@ export const useApp = create<AppState>()(
       dashboardTab: "overview",
       adminTab: "overview",
       widgetOpen: false,
-      setView: (view) => set({ view }),
-      setSession: (session) =>
-        set({
-          session,
-          view: session ? (session.role === "super_admin" ? "admin" : session.role === "operator" ? "operator" : "dashboard") : "landing",
-        }),
-      logout: () => set({ session: null, view: "landing" }),
-      setActiveTenant: (activeTenantId, activeTenantSlug = null) => set({ activeTenantId, activeTenantSlug }),
+      setView: (view) => {
+        set({ view });
+        const { activeTenantSlug } = get();
+        updateUrl(view, activeTenantSlug);
+      },
+      setSession: (session) => {
+        const view = session
+          ? (session.role === "super_admin" ? "admin" : session.role === "operator" ? "operator" : "dashboard")
+          : "landing";
+        set({ session, view });
+        updateUrl(view);
+      },
+      logout: () => {
+        set({ session: null, view: "landing" });
+        updateUrl("landing");
+      },
+      setActiveTenant: (activeTenantId, activeTenantSlug = null) =>
+        set({ activeTenantId, activeTenantSlug }),
       setReferralCode: (referralCode) => set({ referralCode }),
       setDashboardTab: (dashboardTab) => set({ dashboardTab }),
       setAdminTab: (adminTab) => set({ adminTab }),

@@ -352,17 +352,50 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
 
           {/* Widget embed code */}
           {channel.platform === "widget" && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">کد امبد ویجت</Label>
-              <pre className="bg-muted rounded-lg p-3 text-[10px] overflow-x-auto scroll-area" dir="ltr">
-{`<script src="${typeof window !== "undefined" ? window.location.origin : "https://your-platform.com"}/widget.js"></script>
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                <div className="grid place-items-center size-8 rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0">
+                  <Globe className="size-4" />
+                </div>
+                <div className="text-xs leading-5 text-muted-foreground">
+                  <strong>ویجت وب‌سایت بدون نیاز به تنظیمات اضافی است.</strong>
+                  <br />کافی است کد زیر را در وب‌سایت خود قرار دهید. ویجت به‌صورت خودکار در گوشه صفحه نمایش داده می‌شود و مشتریان می‌توانند با منشی هوشمند شما گفتگو کنند.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold">مراحل نصب:</Label>
+                <ol className="text-xs text-muted-foreground space-y-2 list-decimal pr-4">
+                  <li>کد زیر را کپی کنید</li>
+                  <li>در ویرایشگر وب‌سایت خود (مثل وردپرس، ویرایشگر کد، یا فایل HTML) تگ <code className="bg-muted px-1 rounded font-mono text-[10px]">&lt;head&gt;</code> یا انتهای <code className="bg-muted px-1 rounded font-mono text-[10px]">&lt;body&gt;</code> را باز کنید</li>
+                  <li>کد را در آنجا قرار دهید و سایت را ذخیره کنید</li>
+                  <li>ویجت بلافاصله در سایت شما فعال می‌شود</li>
+                </ol>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">کد امبد</Label>
+                <pre className="bg-muted rounded-lg p-3 text-[10px] overflow-x-auto scroll-area font-mono" dir="ltr">
+{`<script src="${typeof window !== "undefined" ? window.location.origin : ""}/widget.js"></script>
 <script>
   AIReceptionist.init({ tenantId: "${tenantId}" });
 </script>`}
-              </pre>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { navigator.clipboard.writeText(`<script src="${typeof window !== "undefined" ? window.location.origin : ""}/widget.js"></script>\n<script>AIReceptionist.init({tenantId:"${tenantId}"});</script>`); toast.success("کد کپی شد"); }}>
-                <Copy className="size-3.5" /> کپی کد
-              </Button>
+                </pre>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { const origin = typeof window !== "undefined" ? window.location.origin : ""; navigator.clipboard.writeText('<script src="' + origin + '/widget.js"></script>\n<script>AIReceptionist.init({tenantId:"' + tenantId + '"});</script>'); toast.success("کد کپی شد"); }}>
+                  <Copy className="size-3.5" /> کپی کد
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { window.open("/widget-demo?tenantId=" + tenantId, "_blank"); }}>
+                  <ExternalLink className="size-3.5" /> پیش‌نمایش زنده
+                </Button>
+              </div>
+
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-amber-700">
+                <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+                <span>اگر وب‌سایت شما از وردپرس است، افزونه‌ای مانند "Insert Headers and Footers" یا "Code Snippets" می‌تواند برای قرار دادن کد استفاده شود.</span>
+              </div>
             </div>
           )}
         </div>
