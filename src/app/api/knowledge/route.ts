@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { isResponse, requireTenant } from "@/lib/auth";
+import { isResponse, requireTenant, requireTenantOwner } from "@/lib/auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { parsePagination } from "@/lib/pagination";
 
 const ALLOWED_TYPES = ["faq", "text", "website", "csv", "pdf", "docx", "excel"];
 
@@ -36,21 +37,26 @@ export async function GET(req: Request) {
     return auth;
   }
 
+  const { limit, offset } = parsePagination(searchParams, { limit: 500, max: 1000 });
   const items = await db.knowledgeItem.findMany({
     where: { tenantId: auth.tenantId },
     orderBy: { createdAt: "desc" },
-    take: 500,
+    take: limit,
+    skip: offset,
   });
   return NextResponse.json(items.map((i) => ({ ...i, chunks: safeChunks(i.chunksJson) })));
 }
 
 export async function POST(req: Request) {
+  const limit = rateLimit(`knowledge-write:${clientIp(req)}`, 60, 10 * 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSec);
+
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "بدنه درخواست نامعتبر است" }, { status: 400 });
   }
 
-  const auth = await requireTenant(req, body.tenantId);
+  const auth = await requireTenantOwner(req, body.tenantId);
   if (isResponse(auth)) return auth;
 
   const { type, title, content, question, url } = body;

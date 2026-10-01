@@ -239,8 +239,8 @@ export function AdminView() {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              if (!currentPassword || newPassword.length < 6) {
-                toast.error("رمز عبور جدید باید حداقل ۶ کاراکتر باشد");
+              if (!currentPassword || newPassword.length < 8) {
+                toast.error("رمز عبور جدید باید حداقل ۸ کاراکتر باشد");
                 return;
               }
               setChangingPassword(true);
@@ -248,6 +248,7 @@ export function AdminView() {
                 await api("/api/auth/change-password", {
                   method: "POST",
                   body: JSON.stringify({ currentPassword, newPassword }),
+                  skipAuthEvent: true,
                 });
                 toast.success("رمز عبور با موفقیت تغییر کرد");
                 setPasswordDialogOpen(false);
@@ -282,10 +283,10 @@ export function AdminView() {
                 dir="ltr"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="حداقل ۶ کاراکتر"
+                placeholder="حداقل ۸ کاراکتر"
                 className="text-left"
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">

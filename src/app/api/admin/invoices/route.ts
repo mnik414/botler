@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isResponse, requireRole } from "@/lib/auth";
+import { parsePagination } from "@/lib/pagination";
 
 // GET /api/admin/invoices — all invoices across all tenants (for Super Admin)
 export async function GET(req: Request) {
@@ -9,6 +10,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
+  const { limit, offset } = parsePagination(searchParams, { limit: 200, max: 500 });
 
   const where: any = {};
   if (status && status !== "all") where.status = status;
@@ -20,7 +22,8 @@ export async function GET(req: Request) {
       plan: { select: { id: true, name: true, code: true, priceMonthly: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: limit,
+    skip: offset,
   });
 
   return NextResponse.json(invoices);

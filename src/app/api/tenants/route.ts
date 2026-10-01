@@ -4,12 +4,16 @@ import { getBusinessType } from "@/lib/business-types";
 import { buildChunks } from "@/lib/ai-engine";
 import { isResponse, requireRole } from "@/lib/auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { addMonthsClamped } from "@/lib/date";
+import {
+  REFERRAL_SIGNUP_CREDITS,
+  REFERRAL_SIGNUP_COMMISSION,
+  REFERRAL_WELCOME_CREDITS,
+} from "@/lib/referral";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 
 const SELF_SERVE_PLANS = ["starter", "growth", "business"];
-const REFERRAL_SIGNUP_CREDITS = 100_000;
-const REFERRAL_SIGNUP_COMMISSION = 50_000;
 
 function slugify(name: string): string {
   const base = name
@@ -33,11 +37,14 @@ async function uniqueSlug(base: string): Promise<string> {
 async function uniqueReferralCode(base: string): Promise<string> {
   const normalized = base.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || randomBytes(4).toString("hex").toUpperCase();
   let candidate = normalized;
-  for (let i = 1; await db.referral.findUnique({ where: { code: candidate }, select: { id: true } }); i++) {
-    candidate = `${normalized.slice(0, 5)}${randomBytes(2).toString("hex").toUpperCase()}`;
-    if (i > 20) break;
+  // Retry until a free code is confirmed; fall back to pure random after the
+  // slug-derived candidates are exhausted so we never insert a collision.
+  for (let i = 0; i < 25; i++) {
+    const taken = await db.referral.findUnique({ where: { code: candidate }, select: { id: true } });
+    if (!taken) return candidate;
+    candidate = `${normalized.slice(0, 3)}${randomBytes(4).toString("hex").toUpperCase()}`;
   }
-  return candidate;
+  return randomBytes(6).toString("hex").toUpperCase();
 }
 
 // List tenants (super admin only)
@@ -111,12 +118,20 @@ export async function POST(req: Request) {
     const slug = await uniqueSlug(slugify(name));
     const referralCodeToUse = await uniqueReferralCode(slug);
 
-    let referrer: { id: string } | null = null;
+    let referrer: { id: string; tenantId: string } | null = null;
     if (typeof referralCode === "string" && referralCode.trim()) {
-      referrer = await db.referral.findUnique({
+      const candidate = await db.referral.findUnique({
         where: { code: referralCode.trim().toUpperCase().slice(0, 32) },
-        select: { id: true },
+        select: { id: true, tenantId: true },
       });
+      // Self-referral guard: ignore a code owned by the same owner email.
+      if (candidate) {
+        const sameOwner = await db.user.findFirst({
+          where: { tenantId: candidate.tenantId, email: ownerEmail.toLowerCase().trim() },
+          select: { id: true },
+        });
+        if (!sameOwner) referrer = candidate;
+      }
     }
 
     const passwordHash = await bcrypt.hash(ownerPassword, 12);
@@ -188,12 +203,18 @@ export async function POST(req: Request) {
           tenantId: tenant.id,
           planId: plan.id,
           status: "trial",
-          renewsAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()),
+          // Clamped so signup on the 29th-31st does not overflow into March.
+          renewsAt: addMonthsClamped(now, 1),
         },
       });
 
       await tx.referral.create({
-        data: { tenantId: tenant.id, code: referralCodeToUse },
+        data: {
+          tenantId: tenant.id,
+          code: referralCodeToUse,
+          // Welcome credit promised to the invited business by the public page.
+          credits: REFERRAL_WELCOME_CREDITS,
+        },
       });
 
       if (referrer) {

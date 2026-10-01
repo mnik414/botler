@@ -27,9 +27,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
 
   const user = await getAuthUser(req);
-  const isMember = !!user && (user.role === "super_admin" || user.tenantId === id);
+  // Plan/subscription details are owner-level; operators get the public projection.
+  const isOwner = !!user && (user.role === "super_admin" || (user.role === "business_owner" && user.tenantId === id));
 
-  if (isMember) {
+  if (isOwner) {
     const tenant = await db.tenant.findUnique({
       where: { id },
       select: {

@@ -114,7 +114,7 @@ export function BusinessProfilePage() {
               <div className="flex items-center gap-2 mb-1">
                 <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/25">{item.businessTypeLabel}</Badge>
                 <Badge className="bg-emerald-400/30 text-white border-emerald-100/30 gap-1">
-                  <span className="size-1.5 rounded-full bg-emerald-300 pulse-dot" /> آنلاین
+                  <span className="size-1.5 rounded-full bg-emerald-300 pulse-dot" /> پاسخ‌گویی خودکار
                 </Badge>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold mb-1">{item.name}</h1>
@@ -213,11 +213,11 @@ export function BusinessProfilePage() {
                   <MessageSquare className="size-4 text-primary" /> گفتگوی زنده با منشی
                 </h3>
                 <Badge variant="outline" className="gap-1 text-[10px]">
-                  <span className="size-1.5 rounded-full bg-emerald-500 pulse-dot" /> آنلاین
+                  <span className="size-1.5 rounded-full bg-emerald-500 pulse-dot" /> پاسخ‌گویی خودکار
                 </Badge>
               </div>
               <div className="h-[480px]">
-                <FloatingWidget tenantId={item.id} variant="panel" initialOpen accentColor={accent} businessName={item.name} />
+                <FloatingWidget key={item.id} tenantId={item.id} variant="panel" initialOpen accentColor={accent} businessName={item.name} />
               </div>
             </Card>
             <p className="text-xs text-center text-muted-foreground mt-3 px-4">

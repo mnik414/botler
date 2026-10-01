@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/store/app-store";
 import { api, type MarketplaceItem } from "@/lib/api-client";
 import { BUSINESS_TYPES, MARKETPLACE_CATEGORIES, getBusinessType } from "@/lib/business-types";
@@ -37,7 +37,9 @@ export function MarketplacePage() {
     return () => clearTimeout(t);
   }, [q]);
 
+  const requestSeq = useRef(0);
   const fetchItems = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -45,11 +47,12 @@ export function MarketplacePage() {
       if (debouncedQ) params.set("q", debouncedQ);
       const url = `/api/marketplace${params.toString() ? `?${params.toString()}` : ""}`;
       const data = await api<MarketplaceItem[]>(url);
+      if (seq !== requestSeq.current) return; // stale response — ignore
       setItems(data);
     } catch {
-      setItems([]);
+      if (seq === requestSeq.current) setItems([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [category, debouncedQ]);
 

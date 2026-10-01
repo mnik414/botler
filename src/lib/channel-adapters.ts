@@ -2,7 +2,8 @@
 // Each platform implements: sendMessage, verifyWebhook, parseIncomingMessage.
 // Adding a new platform = implement ChannelAdapter + register in CHANNEL_REGISTRY.
 
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac } from "crypto";
+import { safeEqual } from "@/lib/safe-equal";
 
 export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "bale" | "tiktok" | "airbnb" | "widget" | "voice";
 
@@ -30,15 +31,9 @@ export interface ChannelAdapter {
   sendMessage(credentials: any, recipientId: string, text: string): Promise<{ ok: boolean; error?: string }>;
   // Verify incoming webhook signature using the raw request body
   verifyWebhook(headers: Record<string, string>, rawBody: string, ctx: WebhookContext): boolean;
-  // Parse incoming webhook into a standard message
-  parseIncomingMessage(body: any): IncomingMessage | null;
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
+  // Parse incoming webhook into standard messages. Meta batches multiple
+  // messages per POST, so this always returns an array.
+  parseIncomingMessages(body: any): IncomingMessage[];
 }
 
 // Meta (Instagram/WhatsApp) signs payloads with the app secret:
@@ -75,9 +70,9 @@ const InstagramAdapter: ChannelAdapter = {
   ],
   async sendMessage(creds: any, recipientId: string, text: string) {
     try {
-      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.pageId}/messages?access_token=${encodeURIComponent(creds.accessToken)}`, {
+      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.pageId}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${creds.accessToken}` },
         body: JSON.stringify({ recipient: { id: recipientId }, message: { text } }),
         signal: AbortSignal.timeout(10000),
       });
@@ -88,16 +83,20 @@ const InstagramAdapter: ChannelAdapter = {
   verifyWebhook(headers, rawBody, ctx) {
     return verifyMetaSignature(headers, rawBody, ctx.credentials?.appSecret);
   },
-  parseIncomingMessage(body: any) {
-    const entry = body?.entry?.[0];
-    const messaging = entry?.messaging?.[0];
-    if (!messaging?.message?.text) return null;
-    return {
-      senderId: messaging.sender?.id || "",
-      senderName: messaging.sender?.username || "کاربر اینستاگرام",
-      text: messaging.message.text,
-      eventKey: String(messaging.message?.mid || messaging.timestamp || ""),
-    };
+  parseIncomingMessages(body: any) {
+    const messages: IncomingMessage[] = [];
+    for (const entry of body?.entry || []) {
+      for (const messaging of entry?.messaging || []) {
+        if (!messaging?.message?.text) continue;
+        messages.push({
+          senderId: messaging.sender?.id || "",
+          senderName: messaging.sender?.username || "کاربر اینستاگرام",
+          text: messaging.message.text,
+          eventKey: String(messaging.message?.mid || messaging.timestamp || ""),
+        });
+      }
+    }
+    return messages;
   },
 };
 
@@ -125,9 +124,9 @@ const WhatsAppAdapter: ChannelAdapter = {
   ],
   async sendMessage(creds: any, recipientId: string, text: string) {
     try {
-      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.phoneNumberId}/messages?access_token=${encodeURIComponent(creds.accessToken)}`, {
+      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.phoneNumberId}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${creds.accessToken}` },
         body: JSON.stringify({ messaging_product: "whatsapp", to: recipientId, type: "text", text: { body: text } }),
         signal: AbortSignal.timeout(10000),
       });
@@ -138,17 +137,24 @@ const WhatsAppAdapter: ChannelAdapter = {
   verifyWebhook(headers, rawBody, ctx) {
     return verifyMetaSignature(headers, rawBody, ctx.credentials?.appSecret);
   },
-  parseIncomingMessage(body: any) {
-    const entry = body?.entry?.[0];
-    const change = entry?.changes?.[0];
-    const msg = change?.value?.messages?.[0];
-    if (!msg?.text?.body) return null;
-    return {
-      senderId: msg.from || "",
-      senderName: change?.value?.contacts?.[0]?.profile?.name || msg.from || "کاربر واتساپ",
-      text: msg.text.body,
-      eventKey: String(msg.id || ""),
-    };
+  parseIncomingMessages(body: any) {
+    const messages: IncomingMessage[] = [];
+    for (const entry of body?.entry || []) {
+      for (const change of entry?.changes || []) {
+        const contacts = change?.value?.contacts || [];
+        for (const msg of change?.value?.messages || []) {
+          if (!msg?.text?.body) continue;
+          const contact = contacts.find((c: any) => c.wa_id === msg.from) || contacts[0];
+          messages.push({
+            senderId: msg.from || "",
+            senderName: contact?.profile?.name || msg.from || "کاربر واتساپ",
+            text: msg.text.body,
+            eventKey: String(msg.id || ""),
+          });
+        }
+      }
+    }
+    return messages;
   },
 };
 
@@ -179,7 +185,12 @@ const BaleAdapter: ChannelAdapter = {
         body: JSON.stringify({ chat_id: recipientId, text }),
         signal: AbortSignal.timeout(10000),
       });
-      if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
+      const data = await res.json().catch(() => null);
+      // Telegram-style APIs return HTTP 200 with { ok:false, description } on
+      // logical failures (e.g. "bot was blocked by the user").
+      if (!res.ok || !data?.ok) {
+        return { ok: false, error: String(data?.description || `HTTP ${res.status}`).slice(0, 200) };
+      }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
@@ -188,15 +199,15 @@ const BaleAdapter: ChannelAdapter = {
     const provided = headers["x-telegram-bot-api-secret-token"] || headers["x-bale-bot-api-secret-token"] || "";
     return provided.length > 0 && safeEqual(provided, ctx.secret);
   },
-  parseIncomingMessage(body: any) {
+  parseIncomingMessages(body: any) {
     const msg = body?.message;
-    if (!msg?.text) return null;
-    return {
+    if (!msg?.text) return [];
+    return [{
       senderId: String(msg.chat?.id || msg.from?.id || ""),
       senderName: msg.from?.first_name || msg.from?.username || "کاربر بله",
       text: msg.text,
       eventKey: String(body?.update_id ?? msg.message_id ?? ""),
-    };
+    }];
   },
   // Bale-specific: set webhook on save (similar to Telegram)
   async setWebhook(botToken: string, webhookUrl: string, secret: string) {
@@ -238,7 +249,11 @@ const TelegramAdapter: ChannelAdapter = {
         body: JSON.stringify({ chat_id: recipientId, text }),
         signal: AbortSignal.timeout(10000),
       });
-      if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
+      const data = await res.json().catch(() => null);
+      // Telegram returns HTTP 200 with { ok:false, description } on failures.
+      if (!res.ok || !data?.ok) {
+        return { ok: false, error: String(data?.description || `HTTP ${res.status}`).slice(0, 200) };
+      }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
@@ -247,15 +262,15 @@ const TelegramAdapter: ChannelAdapter = {
     const provided = headers["x-telegram-bot-api-secret-token"] || "";
     return provided.length > 0 && safeEqual(provided, ctx.secret);
   },
-  parseIncomingMessage(body: any) {
+  parseIncomingMessages(body: any) {
     const msg = body?.message;
-    if (!msg?.text) return null;
-    return {
+    if (!msg?.text) return [];
+    return [{
       senderId: String(msg.chat?.id || ""),
       senderName: msg.from?.first_name || msg.from?.username || "کاربر تلگرام",
       text: msg.text,
       eventKey: String(body?.update_id ?? msg.message_id ?? ""),
-    };
+    }];
   },
   // Telegram-specific: set webhook on save
   async setWebhook(botToken: string, webhookUrl: string, secret: string) {
@@ -305,19 +320,29 @@ const TikTokAdapter: ChannelAdapter = {
     const appSecret = ctx.credentials?.appSecret;
     const signature = headers["tiktok-signature"];
     if (!appSecret || !signature) return false;
+    // Structured form: "t=<unix-ts>,s=<hex hmac of `${t}.${body}`>".
+    const structured = signature.match(/t=(\d+)\s*[,;]\s*s=([0-9a-f]+)/i);
+    if (structured) {
+      const timestamp = Number(structured[1]);
+      // Reject stale signatures (5 minute replay window).
+      if (!Number.isFinite(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+      const expected = createHmac("sha256", appSecret).update(`${structured[1]}.${rawBody}`, "utf8").digest("hex");
+      return safeEqual(structured[2].toLowerCase(), expected);
+    }
+    // Legacy fallback: raw hex HMAC over the body.
     const expected = createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
-    return safeEqual(signature, expected);
+    return safeEqual(signature.toLowerCase(), expected);
   },
-  parseIncomingMessage(body: any) {
+  parseIncomingMessages(body: any) {
     const event = body?.event;
     const data = body?.data;
-    if (event !== "message.receive" || !data?.content?.text) return null;
-    return {
+    if (event !== "message.receive" || !data?.content?.text) return [];
+    return [{
       senderId: data?.from?.open_id || "",
       senderName: data?.from?.name || "کاربر تیک‌تاک",
       text: data.content.text,
       eventKey: String(data?.message_id || data?.content?.message_id || ""),
-    };
+    }];
   },
 };
 
@@ -355,15 +380,15 @@ const AirbnbAdapter: ChannelAdapter = {
   },
   // Airbnb does not document webhook signatures; reject until a verifier is implemented.
   verifyWebhook() { return false; },
-  parseIncomingMessage(body: any) {
+  parseIncomingMessages(body: any) {
     const msg = body?.message;
-    if (!msg?.text) return null;
-    return {
+    if (!msg?.text) return [];
+    return [{
       senderId: String(msg?.sender?.id || ""),
       senderName: msg?.sender?.first_name || "مهمان Airbnb",
       text: msg.text,
       eventKey: String(msg?.id || ""),
-    };
+    }];
   },
 };
 
@@ -383,7 +408,7 @@ const WidgetAdapter: ChannelAdapter = {
   credentialsFields: [],
   async sendMessage() { return { ok: true }; },
   verifyWebhook() { return false; },
-  parseIncomingMessage() { return null; },
+  parseIncomingMessages() { return []; },
 };
 
 // ────────────────────────────────────────────────────────────
@@ -407,7 +432,7 @@ const VoiceAdapter: ChannelAdapter = {
   ],
   async sendMessage() { return { ok: true }; },
   verifyWebhook() { return false; },
-  parseIncomingMessage() { return null; },
+  parseIncomingMessages() { return []; },
 };
 
 // ────────────────────────────────────────────────────────────

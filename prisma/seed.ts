@@ -365,6 +365,9 @@ async function seedDatabase(force = false) {
     await db.knowledgeItem.deleteMany();
     await db.agent.deleteMany();
     await db.user.deleteMany();
+    await db.channelConnection.deleteMany();
+    await db.processedEvent.deleteMany();
+    await db.aiProvider.deleteMany();
     await db.tenant.deleteMany();
     await db.plan.deleteMany();
     await db.platformConfig.deleteMany();
@@ -488,6 +491,17 @@ async function seedDatabase(force = false) {
 // Run as CLI
 async function main() {
   const force = process.argv.includes("--force");
+
+  // Safety guard: demo data contains known default credentials. Never seed a
+  // production database unless the operator explicitly opts in.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_SEED !== "1") {
+    console.error(
+      "❌ Refusing to seed a production database (demo credentials are public). " +
+        "Set ALLOW_PROD_SEED=1 to override at your own risk."
+    );
+    process.exit(1);
+  }
+
   try {
     await seedDatabase(force);
   } catch (e: any) {

@@ -17,9 +17,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ tenantId
   const { tenantId } = await params;
 
   const user = await getAuthUser(req);
-  const isMember = !!user && (user.role === "super_admin" || user.tenantId === tenantId);
+  // Full agent config (system prompt, model, provider) is owner-level only;
+  // operators fall through to the public projection.
+  const isOwner = !!user && (user.role === "super_admin" || (user.role === "business_owner" && user.tenantId === tenantId));
 
-  if (isMember) {
+  if (isOwner) {
     const agent = await db.agent.findUnique({ where: { tenantId } });
     if (!agent) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json({ ...agent, channels: safeChannels(agent.channelsJson) });
@@ -54,8 +56,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ tenant
   if (typeof data.name === "string" && data.name.length > 120) data.name = data.name.slice(0, 120);
   if (typeof data.systemPrompt === "string" && data.systemPrompt.length > 20000) data.systemPrompt = data.systemPrompt.slice(0, 20000);
   if (typeof data.greetingMessage === "string" && data.greetingMessage.length > 2000) data.greetingMessage = data.greetingMessage.slice(0, 2000);
+  if (data.model !== undefined && (typeof data.model !== "string" || !data.model.trim())) delete data.model;
+  else if (typeof data.model === "string") data.model = data.model.slice(0, 100);
   if (data.temperature !== undefined && (typeof data.temperature !== "number" || data.temperature < 0 || data.temperature > 2)) delete data.temperature;
   if (data.confidenceThreshold !== undefined && (typeof data.confidenceThreshold !== "number" || data.confidenceThreshold < 0 || data.confidenceThreshold > 1)) delete data.confidenceThreshold;
+  for (const k of ["voiceEnabled", "humanHandoff", "growthLoop"] as const) {
+    if (data[k] !== undefined && typeof data[k] !== "boolean") delete data[k];
+  }
 
   if (body.channels) {
     if (!Array.isArray(body.channels)) return NextResponse.json({ error: "channels باید آرایه باشد" }, { status: 400 });

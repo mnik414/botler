@@ -29,7 +29,7 @@ function parseViewFromUrl(): { view: string; tenantSlug?: string } {
   if (ref) return { view: "referral" };
   if (embed === "1" && params.get("tenantId")) return { view: "landing" };
   if (tenantSlug) return { view: "business", tenantSlug };
-  if (viewParam && ["pricing", "login", "signup", "widget-demo", "referral", "track", "dashboard", "admin", "operator"].includes(viewParam)) {
+  if (viewParam && ["marketplace", "pricing", "login", "signup", "widget-demo", "referral", "track", "dashboard", "admin", "operator"].includes(viewParam)) {
     return { view: viewParam };
   }
   return { view: "landing" };
@@ -43,12 +43,19 @@ export default function Home() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const embedTenantId = params.get("embed") === "1" ? params.get("tenantId") : null;
-    if (embedTenantId) setActiveTenant(embedTenantId, null);
+    // Embed mode intentionally does NOT persist activeTenantId in the visitor's
+    // localStorage — it must not leak into their later browsing session.
 
     const { view: initialView, tenantSlug } = parseViewFromUrl();
     if (initialView === "referral") {
       const ref = params.get("ref");
-      if (ref) setReferralCode(ref.toUpperCase());
+      if (ref) {
+        setReferralCode(ref.toUpperCase());
+        // Survive a refresh on the signup page (mobile back/forward, reload).
+        try {
+          sessionStorage.setItem("ref-code", ref.toUpperCase());
+        } catch {}
+      }
       if (!embedTenantId) setView("referral");
     } else if (initialView === "business" && tenantSlug) {
       (async () => {
@@ -139,7 +146,7 @@ export default function Home() {
 
   return (
     <>
-      {view === "dashboard" && session ? (
+      {view === "dashboard" && session && (session.role === "business_owner" || session.role === "super_admin") ? (
         <DashboardView />
       ) : view === "admin" && session?.role === "super_admin" ? (
         <AdminView />

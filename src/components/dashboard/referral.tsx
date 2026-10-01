@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Gift, Copy, MousePointerClick, UserPlus, Coins, TrendingUp,
-  Sparkles, Share2, Loader2, CheckCircle2, ExternalLink,
+  Sparkles, Share2, CheckCircle2, ExternalLink,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { formatToman, formatNumber } from "@/lib/format";
@@ -25,21 +25,7 @@ interface ReferralData {
 export function ReferralTab({ tenantId }: { tenantId: string }) {
   const { data, loading, error, reload } = useAsync<ReferralData>(() => api(`/api/referral/${tenantId}`), [tenantId]);
   const [copied, setCopied] = React.useState(false);
-  const [busy, setBusy] = React.useState<"click" | "signup" | null>(null);
   const { setReferralCode, setView } = useApp();
-
-  const recordEvent = async (event: "click" | "signup") => {
-    setBusy(event);
-    try {
-      await api(`/api/referral/${tenantId}`, { method: "POST", body: JSON.stringify({ event }) });
-      toast.success(event === "click" ? "یک کلیک شبیه‌سازی ثبت شد." : "یک ثبت‌نام شبیه‌سازی ثبت شد و اعتبار اضافه شد.");
-      reload();
-    } catch (e: any) {
-      toast.error(e.message || "خطا");
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const copyLink = () => {
     if (!data) return;
@@ -116,33 +102,10 @@ export function ReferralTab({ tenantId }: { tenantId: string }) {
         <KpiCard icon={TrendingUp} label="پورسانت کسب‌شده" value={formatToman(data.commission)} accent="#8b5cf6" hint="درآمد شما از معرفی" />
       </div>
 
-      {/* Simulator */}
+      {/* Growth loop explanation */}
       <SectionCard
-        title="شبیه‌ساز حلقه رشد"
-        description="برای تست مکانیزم حلقه رشد، می‌توانید رویدادهای کلیک و ثبت‌نام را شبیه‌سازی کنید"
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              disabled={busy !== null}
-              onClick={() => recordEvent("click")}
-            >
-              {busy === "click" ? <Loader2 className="size-4 animate-spin" /> : <MousePointerClick className="size-4" />}
-              ثبت کلیک شبیه‌سازی
-            </Button>
-            <Button
-              size="sm"
-              className="gap-1.5"
-              disabled={busy !== null}
-              onClick={() => recordEvent("signup")}
-            >
-              {busy === "signup" ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-              ثبت ثبت‌نام شبیه‌سازی
-            </Button>
-          </div>
-        }
+        title="حلقه رشد (Growth Loop)"
+        description="آمار فقط از رویدادهای واقعی (بازدید لینک و ثبت‌نام) محاسبه می‌شود"
       >
         <div className="text-sm text-muted-foreground leading-7">
           <p className="mb-3">حلقه رشد (Growth Loop) چگونه کار می‌کند؟</p>

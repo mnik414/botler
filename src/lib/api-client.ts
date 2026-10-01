@@ -1,17 +1,19 @@
 // Client-side API helpers
 import type { ChatMessage, RagSource } from "@/lib/types";
 
-export async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
+export async function api<T = any>(path: string, opts?: RequestInit & { skipAuthEvent?: boolean }): Promise<T> {
+  const { skipAuthEvent, ...init } = opts || {};
   const res = await fetch(path, {
-    ...opts,
+    ...init,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(opts?.headers || {}),
+      ...(init.headers || {}),
     },
   });
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    // Credential-mismatch 401s from auth endpoints must not log the user out.
+    if (res.status === 401 && !skipAuthEvent && typeof window !== "undefined") {
       window.dispatchEvent(new Event("auth:unauthorized"));
     }
     const err = await res.json().catch(() => ({ error: res.statusText }));

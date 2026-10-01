@@ -93,7 +93,7 @@ export function AgentTab({ tenantId }: { tenantId: string }) {
     const bt = getBusinessType(session?.tenant?.businessType || "other");
     set("systemPrompt", bt.prompt);
     setGenerating(false);
-    toast.success("پرامپت از نوع کسب‌وکار بازتولید شد.");
+    toast.success("پرامپت به قالب پیش‌فرض نوع کسب‌وکار بازنشانی شد. برای اعمال، ذخیره کنید.");
   };
 
   const toggleChannel = (ch: string, checked: boolean) => {
@@ -124,14 +124,14 @@ export function AgentTab({ tenantId }: { tenantId: string }) {
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5" disabled={generating}>
                   {generating ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
-                  بازتولید پرامپت
+                  بازنشانی به قالب پیش‌فرض
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>بازنویسی پرامپت؟</AlertDialogTitle>
+                  <AlertDialogTitle>بازنشانی پرامپت؟</AlertDialogTitle>
                   <AlertDialogDescription>
-                    این عملیات پرامپت فعلی را با قالب آماده برای نوع کسب‌وکار «{BUSINESS_TYPE_LABELS[session?.tenant?.businessType || ""] || "سایر"}» جایگزین می‌کند. آیا مطمئن هستید؟
+                    این عملیات پرامپت فعلی را در فرم با قالب آماده برای نوع کسب‌وکار «{BUSINESS_TYPE_LABELS[session?.tenant?.businessType || ""] || "سایر"}» جایگزین می‌کند (تا زمانی که ذخیره نکنید اعمال نمی‌شود). آیا مطمئن هستید؟
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

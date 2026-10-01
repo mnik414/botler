@@ -61,6 +61,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (body.activate === true) {
     const targetTenantId = searchParams.get("tenantId");
+    if (!provider.isActive) {
+      return NextResponse.json({ error: "ارائه‌دهنده غیرفعال است؛ ابتدا آن را فعال کنید" }, { status: 400 });
+    }
     if (targetTenantId) {
       await db.agent.updateMany({ where: { tenantId: targetTenantId }, data: { aiProviderId: id } });
     }

@@ -119,24 +119,53 @@ export interface TenantAuth {
   tenantId: string;
 }
 
+export const TENANT_ROLES = ["business_owner", "operator"];
+export const OWNER_ROLES = ["business_owner", "super_admin"];
+
+interface RequireTenantOptions {
+  // Extra allowlist on top of the default tenant roles (super_admin is always allowed)
+  roles?: string[];
+  // Bypass the tenant-status gate (used by admin/platform-level reads)
+  allowSuspended?: boolean;
+}
+
 // Resolve the tenant a request is allowed to act on and verify access:
 // - super_admin may target any tenant (tenantId must be provided)
 // - business_owner/operator may only target their own tenant
+// - suspended tenants are blocked for normal member operations
 export async function requireTenant(
   req: Request,
-  requestedTenantId?: string | null
+  requestedTenantId?: string | null,
+  opts: RequireTenantOptions = {}
 ): Promise<TenantAuth | Response> {
   const user = await getAuthUser(req);
   if (!user) return unauthorized();
 
+  const allowed = opts.roles ?? TENANT_ROLES;
+  if (user.role !== "super_admin" && !allowed.includes(user.role)) return forbidden();
+
+  let tenantId: string;
   if (user.role === "super_admin") {
     if (!requestedTenantId) return jsonError(400, "tenantId required");
-    return { user, tenantId: requestedTenantId };
+    tenantId = requestedTenantId;
+  } else {
+    if (!user.tenantId) return forbidden();
+    if (requestedTenantId && requestedTenantId !== user.tenantId) return forbidden();
+    tenantId = user.tenantId;
   }
 
-  if (!user.tenantId) return forbidden();
-  if (requestedTenantId && requestedTenantId !== user.tenantId) return forbidden();
-  return { user, tenantId: user.tenantId };
+  if (!opts.allowSuspended) {
+    const tenant = await db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { status: true },
+    });
+    if (!tenant) return jsonError(404, "کسب‌وکار یافت نشد");
+    if (tenant.status === "suspended") {
+      return forbidden("این کسب‌وکار موقتاً غیرفعال شده است");
+    }
+  }
+
+  return { user, tenantId };
 }
 
 // Require an owner-level tenant actor (business_owner or super_admin).
@@ -146,6 +175,6 @@ export async function requireTenantOwner(
 ): Promise<TenantAuth | Response> {
   const user = await getAuthUser(req);
   if (!user) return unauthorized();
-  if (user.role !== "super_admin" && user.role !== "business_owner") return forbidden();
-  return requireTenant(req, requestedTenantId);
+  if (!OWNER_ROLES.includes(user.role)) return forbidden();
+  return requireTenant(req, requestedTenantId, { roles: OWNER_ROLES });
 }

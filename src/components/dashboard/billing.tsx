@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { api, type Plan } from "@/lib/api-client";
 import { toFa, formatToman, formatNumber, formatDate } from "@/lib/format";
+import { TOKEN_COST_TOMAN, estimateTokenCost } from "@/lib/pricing";
 import { toast } from "sonner";
 import { SectionCard, LoadingBlock, ErrorBlock, useAsync, KpiCard, pct } from "./shared";
 
@@ -127,7 +128,7 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
       {/* Token usage + estimated cost */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={Coins} label="توکن این ماه" value={formatNumber(subscription?.tokenUsage || 0)} hint="مجموع مصرف" />
-        <KpiCard icon={Zap} label="هزینه تخمینی توکن" value={formatToman(Math.round((subscription?.tokenUsage || 0) * 0.5))} hint="بر اساس ۰.۵ تومان/توکن" accent="#f59e0b" />
+        <KpiCard icon={Zap} label="هزینه تخمینی توکن" value={formatToman(estimateTokenCost(subscription?.tokenUsage || 0))} hint={`بر اساس ${toFa(TOKEN_COST_TOMAN)} تومان/توکن`} accent="#f59e0b" />
         <KpiCard icon={Calendar} label="روزهای باقی‌مانده" value={toFa(Math.max(0, Math.ceil((subscription?.renewsAt ? new Date(subscription.renewsAt).getTime() - Date.now() : 0) / 86400000)))} hint="تا تمدید سیکل" accent="#06b6d4" />
       </div>
 

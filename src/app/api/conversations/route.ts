@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isResponse, requireTenant } from "@/lib/auth";
+import { parsePagination } from "@/lib/pagination";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const auth = await requireTenant(req, searchParams.get("tenantId"));
   if (isResponse(auth)) return auth;
 
+  const { limit, offset } = parsePagination(searchParams, { limit: 100, max: 200 });
   const convos = await db.conversation.findMany({
     where: { tenantId: auth.tenantId },
     include: {
-      messages: { orderBy: { createdAt: "asc" }, take: 50 },
+      // Preview only — full history comes from the messages endpoint.
+      messages: { orderBy: { createdAt: "desc" }, take: 20 },
       _count: { select: { messages: true } },
     },
     orderBy: { updatedAt: "desc" },
-    take: 100,
+    take: limit,
+    skip: offset,
   });
   return NextResponse.json(convos);
 }

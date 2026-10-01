@@ -28,6 +28,18 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Fail if migrations are not in sync with schema
+        run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Fail if API route files are untracked (ignore-rule regression guard)
+        run: |
+          missing=$(comm -23 <(find src/app/api -name route.ts | sort) <(git ls-files src/app/api | sort) || true)
+          if [ -n "$missing" ]; then
+            echo "Untracked API route files (check .gitignore patterns):"
+            echo "$missing"
+            exit 1
+          fi
+
       - name: Typecheck
         run: npm run typecheck
 

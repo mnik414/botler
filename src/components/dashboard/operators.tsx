@@ -87,6 +87,7 @@ export function OperatorsTab({ tenantId }: { tenantId: string }) {
   };
 
   const removeUser = async (u: OperatorUser) => {
+    if (!window.confirm(`کاربر «${u.name}» حذف شود؟`)) return;
     setDeletingId(u.id);
     try {
       await api(`/api/tenants/${tenantId}/operators?userId=${u.id}`, { method: "DELETE" });

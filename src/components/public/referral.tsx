@@ -34,6 +34,14 @@ export function ReferralPage() {
         const lookup = await api<ReferralInfo>(`/api/referral/by-code/${encodeURIComponent(referralCode)}`);
         if (!mounted) return;
         setInfo(lookup);
+        // Track one click per browser session (side-effect-free GET stays clean).
+        try {
+          const clickKey = `ref-clicked:${referralCode}`;
+          if (!sessionStorage.getItem(clickKey)) {
+            sessionStorage.setItem(clickKey, "1");
+            api(`/api/referral/by-code/${encodeURIComponent(referralCode)}/click`, { method: "POST" }).catch(() => {});
+          }
+        } catch {}
       } catch {
         if (mounted) setInfo(null);
       } finally {
@@ -134,7 +142,7 @@ export function ReferralPage() {
               "با این لینک ثبت‌نام کنید تا کد معرفی به‌طور خودکار ثبت شود.",
               "نوع کسب‌وکار و اطلاعات خود را وارد کنید.",
               "منشی هوشمند اختصاصی شما به‌صورت خودکار ساخته می‌شود.",
-              "اعتبار هدیه به‌محض فعال‌سازی اشتراک به حساب شما افزوده می‌شود.",
+              "اعتبار هدیه بلافاصله در حساب کسب‌وکار شما ثبت می‌شود.",
             ].map((step, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="grid place-items-center size-7 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">

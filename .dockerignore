@@ -14,17 +14,20 @@ coverage
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
-db
+*.sqlite-shm
+*.sqlite-wal
+/db
 backups
 
-# local logs & agent artifacts
+# local logs & agent artifacts (root-level only — never match source dirs)
 *.log
 agent-ctx
 tool-results
-upload
-download
+/upload
+/download
 worklog.md
 .zscripts/dev.pid
 

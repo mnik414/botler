@@ -33,10 +33,8 @@ const INVOICE_STATUS: Record<string, { label: string; color: string; icon: any }
 
 export function AdminPayments() {
   const [statusFilter, setStatusFilter] = React.useState("all");
-  const { data, loading, error, reload } = useAsync<AdminInvoice[]>(
-    () => api(`/api/admin/invoices?status=${statusFilter}`),
-    [statusFilter]
-  );
+  // Always fetch the unfiltered set so KPIs stay stable while the table filters.
+  const { data, loading, error, reload } = useAsync<AdminInvoice[]>(() => api(`/api/admin/invoices?status=all`), []);
 
   if (loading) {
     return (
@@ -50,6 +48,7 @@ export function AdminPayments() {
     return <ErrorState message={error || "اطلاعات یافت نشد"} onReload={reload} />;
   }
 
+  const filtered = statusFilter === "all" ? data : data.filter((i) => i.status === statusFilter);
   const totalPaid = data.filter((i) => i.status === "paid").reduce((s, i) => s + i.amount, 0);
   const totalPending = data.filter((i) => i.status === "pending").reduce((s, i) => s + i.amount, 0);
   const totalFailed = data.filter((i) => i.status === "failed").reduce((s, i) => s + i.amount, 0);
@@ -82,7 +81,7 @@ export function AdminPayments() {
       </Card>
 
       {/* Table */}
-      <SectionCard title="صورتحساب‌ها و پرداخت‌ها" description={`مجموع ${formatNumber(data.length)} صورتحساب`}>
+      <SectionCard title="صورتحساب‌ها و پرداخت‌ها" description={`نمایش ${formatNumber(filtered.length)} از ${formatNumber(data.length)} صورتحساب`}>
         <div className="max-h-[60vh] overflow-y-auto scroll-area">
           <Table>
             <TableHeader>
@@ -96,7 +95,7 @@ export function AdminPayments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((inv) => {
+              {filtered.map((inv) => {
                 const st = INVOICE_STATUS[inv.status] || { label: inv.status, color: "", icon: Receipt };
                 return (
                   <TableRow key={inv.id}>
@@ -127,7 +126,7 @@ export function AdminPayments() {
                   </TableRow>
                 );
               })}
-              {data.length === 0 && (
+              {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-10">
                     صورتحسابی یافت نشد

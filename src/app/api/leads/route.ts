@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isResponse, requireTenant } from "@/lib/auth";
+import { normalizePhone } from "@/lib/ai-engine";
+import { parsePagination } from "@/lib/pagination";
 
 const ALLOWED_INTENTS = ["inquiry", "order", "booking", "appointment", "callback"];
 const ALLOWED_SOURCES = ["chat", "voice", "form", "referral", "manual", "widget"];
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/[^\d+]/g, "").slice(0, 20);
-}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const auth = await requireTenant(req, searchParams.get("tenantId"));
   if (isResponse(auth)) return auth;
 
+  const { limit, offset } = parsePagination(searchParams, { limit: 500, max: 1000 });
   const leads = await db.lead.findMany({
     where: { tenantId: auth.tenantId },
     include: { conversation: { select: { id: true, channel: true } } },
     orderBy: { createdAt: "desc" },
-    take: 500,
+    take: limit,
+    skip: offset,
   });
   return NextResponse.json(leads);
 }

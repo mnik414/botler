@@ -95,10 +95,11 @@ export function AdminTenants() {
     }
   }
 
-  function impersonate(t: TenantRow) {
+  function viewWidget(t: TenantRow) {
+    // Opens the tenant's live widget — this is NOT session impersonation.
     setActiveTenant(t.id, t.slug);
     setView("widget-demo");
-    toast.success(`ورود به عنوان ${t.name}`);
+    toast.success(`پیش‌نمایش ویجت ${t.name}`);
   }
 
   if (loading) {
@@ -182,7 +183,7 @@ export function AdminTenants() {
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px] font-mono">{t.plan?.code || "-"}</Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Select
                     value={t.status}
                     onValueChange={(v) => {
@@ -267,9 +268,9 @@ export function AdminTenants() {
                 >
                   {selected.status === "suspended" ? <><Play className="size-3.5" /> فعال‌سازی</> : <><Pause className="size-3.5" /> تعلیق</>}
                 </Button>
-                <Button size="sm" className="gap-1.5" onClick={() => impersonate(selected)}>
+                <Button size="sm" className="gap-1.5" onClick={() => viewWidget(selected)}>
                   <LogIn className="size-3.5" />
-                  ورود به عنوان
+                  مشاهده ویجت
                 </Button>
               </DialogFooter>
             </>

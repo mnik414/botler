@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { toFa } from "@/lib/format";
 
 export function WidgetDemoPage() {
-  const { setActiveTenant, activeTenantId } = useApp();
+  const { setActiveTenant } = useApp();
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [selected, setSelected] = useState<MarketplaceItem | null>(null);
   const [copied, setCopied] = useState(false);
@@ -23,10 +23,13 @@ export function WidgetDemoPage() {
       .then((d) => {
         if (!mounted) return;
         setItems(d);
-        const first = d[0];
-        if (first) {
-          setSelected(first);
-          setActiveTenant(first.id, first.slug);
+        // Deep link: /?view=widget-demo&tenantId=... shows that business first.
+        const params = new URLSearchParams(window.location.search);
+        const requestedId = params.get("tenantId");
+        const target = (requestedId && d.find((x) => x.id === requestedId)) || d[0];
+        if (target) {
+          setSelected(target);
+          setActiveTenant(target.id, target.slug);
         }
       })
       .catch((e: any) => mounted && setLoadError(e?.message || "خطا در دریافت لیست کسب‌وکارها"))
@@ -36,15 +39,15 @@ export function WidgetDemoPage() {
     };
   }, [setActiveTenant]);
 
+  // Never interpolate tenant-controlled display names into HTML/JS: comments
+  // and script payloads are built from JSON-encoded, sanitized values only.
+  const safeName = selected ? selected.name.replace(/--/g, "-").replace(/[<>]/g, "") : "";
+  const safeAccent = selected && /^#[0-9a-fA-F]{3,8}$/.test(selected.accentColor) ? selected.accentColor : "#10b981";
   const embedCode = selected
-    ? `<!-- منشی هوشمند ${selected.name} -->
+    ? `<!-- AI Receptionist widget for ${safeName} -->
 <script src="${typeof window !== "undefined" ? window.location.origin : "https://your-platform.com"}/widget.js"></script>
 <script>
-  AIReceptionist.init({
-    tenantId: "${selected.id}",
-    accentColor: "${selected.accentColor}",
-    position: "left"
-  });
+  AIReceptionist.init(${JSON.stringify({ tenantId: selected.id, accentColor: safeAccent, position: "left" }, null, 2)});
 </script>`
     : "";
 
@@ -114,7 +117,7 @@ export function WidgetDemoPage() {
           <h3 className="font-semibold mb-3">پیش‌نمایش زنده</h3>
           {selected ? (
             <div className="h-[480px]">
-              <FloatingWidget tenantId={selected.id} variant="panel" initialOpen accentColor={selected.accentColor} businessName={selected.name} />
+              <FloatingWidget key={selected.id} tenantId={selected.id} variant="panel" initialOpen accentColor={selected.accentColor} businessName={selected.name} />
             </div>
           ) : (
             <div className="h-[480px] grid place-items-center text-sm text-muted-foreground px-6 text-center">

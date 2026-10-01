@@ -2,6 +2,7 @@
 import { useAsync, StatCard, CardSkeletons, ErrorState, SectionCard, CHART_COLORS } from "./shared";
 import { api, type AdminStats } from "@/lib/api-client";
 import { formatToman, formatNumber, formatCompact, toFa } from "@/lib/format";
+import { TOKEN_COST_TOMAN, estimateTokenCost } from "@/lib/pricing";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -36,11 +37,15 @@ export function AdminTokens() {
 
   const k = data.kpis;
   const tokenData = data.tokenUsageByTenant.slice(0, 10);
-  const topByTokens = [...data.topTenants]
-        .map((t) => ({ ...t, tokens: tokenData.find((x) => x.id === t.id)?.tokens || t.tokens }))
-    .sort((a, b) => b.tokens - a.tokens)
-    .slice(0, 10);
-  const totalTokens = tokenData.reduce((s, t) => s + t.tokens, 0);
+  const tenantMeta = new Map(data.topTenants.map((t) => [t.id, t]));
+  const topByTokens = tokenData
+    .map((u) => {
+      const meta = tenantMeta.get(u.id);
+      return { id: u.id, name: u.name, tokens: u.tokens, slug: meta?.slug || "", plan: meta?.plan || null };
+    })
+    .sort((a, b) => b.tokens - a.tokens);
+  // Grand total across the platform (not just the top 10) for honest shares.
+  const totalTokens = k.totalTokens;
 
   return (
     <div className="space-y-4">
@@ -49,7 +54,7 @@ export function AdminTokens() {
         <StatCard label="مجموع توکن" value={formatCompact(k.totalTokens)} hint={formatNumber(k.totalTokens) + " توکن"} icon={<Cpu className="size-4" />} accent="primary" />
         <StatCard label="میانگین هر کسب‌وکار" value={formatCompact(k.totalTenants > 0 ? Math.round(k.totalTokens / k.totalTenants) : 0)} hint="تقسیم بر کل کسب‌وکارها" icon={<TrendingUp className="size-4" />} accent="teal" />
         <StatCard label="برترین مصرف‌کننده" value={tokenData[0] ? formatCompact(tokenData[0].tokens) : "—"} hint={tokenData[0]?.name || ""} icon={<Zap className="size-4" />} accent="amber" />
-        <StatCard label="هزینه تقریبی توکن" value={formatToman(Math.round(k.totalTokens * 0.02))} hint="محاسبه بر اساس ۲ ریال/توکن" icon={<Cpu className="size-4" />} accent="pink" />
+        <StatCard label="هزینه تقریبی توکن" value={formatToman(estimateTokenCost(k.totalTokens))} hint={`بر اساس ${toFa(TOKEN_COST_TOMAN)} تومان/توکن`} icon={<Cpu className="size-4" />} accent="pink" />
       </div>
 
       {/* Token usage by tenant */}

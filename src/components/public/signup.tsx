@@ -86,7 +86,7 @@ const INITIAL: FormState = {
 };
 
 export function SignupPage() {
-  const { setView, setSession, referralCode } = useApp();
+  const { setView, setSession, referralCode, setReferralCode } = useApp();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -98,6 +98,16 @@ export function SignupPage() {
   // Phone validation (Iranian phone-like)
   const phoneValid = (v: string) => /^[\d۰-۹\-+\s()]{7,}$/.test(toEnDigits(v));
   const emailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  // Restore referral attribution after a refresh (?ref=... was saved in
+  // sessionStorage by the boot router).
+  useEffect(() => {
+    if (referralCode) return;
+    try {
+      const stored = sessionStorage.getItem("ref-code");
+      if (stored) setReferralCode(stored);
+    } catch {}
+  }, [referralCode, setReferralCode]);
 
   useEffect(() => {
     (async () => {
@@ -176,6 +186,7 @@ export function SignupPage() {
         const session = await api<Session>("/api/auth/login", {
           method: "POST",
           body: JSON.stringify({ email: form.ownerEmail.toLowerCase(), password: form.ownerPassword }),
+          skipAuthEvent: true,
         });
         // small delay for celebration
         timerRef.current = setTimeout(() => setSession(session), 1400);

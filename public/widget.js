@@ -37,6 +37,9 @@
       console.error("[AIReceptionist] tenantId is required. Call AIReceptionist.init({tenantId}).");
       return;
     }
+    // Idempotent: repeated init() calls must not append duplicate launchers.
+    var existingLauncher = document.getElementById("ai-receptionist-launcher");
+    if (existingLauncher) return;
     var base = detectBase();
 
     // Launcher button
@@ -76,10 +79,19 @@
     iframe.setAttribute("allow", "microphone; clipboard-write");
     panel.appendChild(iframe);
 
+    function setOpen(open) {
+      state.open = open;
+      panel.style.display = open ? "flex" : "none";
+      launcher.style.transform = open ? "scale(0.92)" : "scale(1)";
+    }
+
+    // Listen for close/open requests coming from the embedded widget
+    window.addEventListener("message", function (event) {
+      if (event && event.data && event.data.type === "ai-receptionist:close") setOpen(false);
+    });
+
     launcher.onclick = function () {
-      state.open = !state.open;
-      panel.style.display = state.open ? "flex" : "none";
-      launcher.style.transform = state.open ? "scale(0.92)" : "scale(1)";
+      setOpen(!state.open);
     };
 
     document.body.appendChild(panel);
@@ -98,9 +110,25 @@
     }
   };
 
+  // Open (never toggles closed) — matches the documented API.
   AIReceptionist.open = function () {
-    var l = document.getElementById("ai-receptionist-launcher");
-    if (l) l.click();
+    var panel = document.getElementById("ai-receptionist-panel");
+    var launcher = document.getElementById("ai-receptionist-launcher");
+    if (panel) {
+      panel.style.display = "flex";
+      state.open = true;
+    }
+    if (launcher) launcher.style.transform = "scale(0.92)";
+  };
+
+  AIReceptionist.close = function () {
+    var panel = document.getElementById("ai-receptionist-panel");
+    var launcher = document.getElementById("ai-receptionist-launcher");
+    if (panel) {
+      panel.style.display = "none";
+      state.open = false;
+    }
+    if (launcher) launcher.style.transform = "scale(1)";
   };
 
   global.AIReceptionist = AIReceptionist;

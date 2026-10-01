@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 import { signAuthToken } from "@/lib/auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
+// Used to equalize response time for unknown accounts (anti user-enumeration).
+const DUMMY_PASSWORD_HASH = "$2b$12$t2IIkOpzlh.ZbAxothK/j./mnELYB65i8NCUmebqUJDgxofIlutPC";
+
 export async function POST(req: Request) {
   try {
     const limit = rateLimit(`login:${clientIp(req)}`, 10, 5 * 60_000);
@@ -14,11 +17,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ایمیل و رمز عبور را وارد کنید" }, { status: 400 });
     }
 
+    // Per-account throttle so distributed IPs cannot brute-force one account.
+    const accountLimit = rateLimit(`login-account:${email.toLowerCase().slice(0, 200)}`, 20, 15 * 60_000);
+    if (!accountLimit.ok) {
+      return tooManyRequests(accountLimit.retryAfterSec, "تلاش‌های ورود برای این حساب بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.");
+    }
+
     const user = await db.user.findUnique({
       where: { email: email.toLowerCase() },
       include: { tenant: true },
     });
     if (!user || !user.passwordHash) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH).catch(() => {});
       return NextResponse.json({ error: "ایمیل یا رمز عبور اشتباه است" }, { status: 401 });
     }
 

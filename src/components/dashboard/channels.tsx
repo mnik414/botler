@@ -63,6 +63,7 @@ export function ChannelsTab({ tenantId }: { tenantId: string }) {
   };
 
   const disconnect = async (conn: any) => {
+    if (!window.confirm("اتصال این کانال قطع شود؟ اعتبارنامه‌های ذخیره‌شده پاک خواهند شد.")) return;
     try {
       const res = await api<{ ok: boolean; status: string; webhookDeleted: boolean; message: string }>(
         `/api/channels/${conn.id}?tenantId=${tenantId}`, { method: "DELETE" }
@@ -378,16 +379,16 @@ function ChannelConfigDialog({ channel, tenantId, onClose, onSaved }: {
                 <pre className="bg-muted rounded-lg p-3 text-[10px] overflow-x-auto scroll-area font-mono" dir="ltr">
 {`<script src="${typeof window !== "undefined" ? window.location.origin : ""}/widget.js"></script>
 <script>
-  AIReceptionist.init({ tenantId: "${tenantId}" });
+  AIReceptionist.init(${JSON.stringify({ tenantId }, null, 2)});
 </script>`}
                 </pre>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { const origin = typeof window !== "undefined" ? window.location.origin : ""; navigator.clipboard.writeText('<script src="' + origin + '/widget.js"></script>\n<script>AIReceptionist.init({tenantId:"' + tenantId + '"});</script>'); toast.success("کد کپی شد"); }}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { const origin = typeof window !== "undefined" ? window.location.origin : ""; navigator.clipboard.writeText('<script src="' + origin + '/widget.js"></script>\n<script>AIReceptionist.init(' + JSON.stringify({ tenantId }) + ');</script>'); toast.success("کد کپی شد"); }}>
                   <Copy className="size-3.5" /> کپی کد
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { window.open("/widget-demo?tenantId=" + tenantId, "_blank"); }}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { window.open("/?view=widget-demo&tenantId=" + encodeURIComponent(tenantId), "_blank"); }}>
                   <ExternalLink className="size-3.5" /> پیش‌نمایش زنده
                 </Button>
               </div>

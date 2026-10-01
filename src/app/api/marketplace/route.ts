@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getBusinessType } from "@/lib/business-types";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { parsePagination } from "@/lib/pagination";
 
 export async function GET(req: Request) {
-  const limit = rateLimit(`marketplace:${clientIp(req)}`, 60, 60_000);
-  if (!limit.ok) return tooManyRequests(limit.retryAfterSec);
+  const rate = rateLimit(`marketplace:${clientIp(req)}`, 60, 60_000);
+  if (!rate.ok) return tooManyRequests(rate.retryAfterSec);
 
   const { searchParams } = new URL(req.url);
   const category = (searchParams.get("category") || "all").slice(0, 50);
   const q = (searchParams.get("q") || "").slice(0, 100);
+  const { limit, offset } = parsePagination(searchParams, { limit: 200, max: 200 });
 
   const where: any = { status: "active" };
   if (category && category !== "all") where.category = category;
@@ -32,7 +34,8 @@ export async function GET(req: Request) {
       address: true,
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: limit,
+    skip: offset,
   });
 
   const result = tenants.map((t) => ({

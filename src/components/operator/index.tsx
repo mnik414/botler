@@ -218,7 +218,7 @@ export function OperatorView() {
             {/* Stats badges */}
             <div className="hidden sm:flex items-center gap-2">
               <StatChip icon={<AlertTriangle className="size-3.5" />} label="در انتظار" value={toFa(stats.queued)} color="text-amber-600 bg-amber-500/10" />
-              <StatChip icon={<CheckCircle2 className="size-3.5" />} label="پاسخ‌داده امروز" value={toFa(stats.handledToday)} color="text-emerald-600 bg-emerald-500/10" />
+              <StatChip icon={<CheckCircle2 className="size-3.5" />} label="پاسخ‌داده (این نشست)" value={toFa(stats.handledToday)} color="text-emerald-600 bg-emerald-500/10" />
               <StatChip icon={<Sparkles className="size-3.5" />} label="میانگین اطمینان" value={toFa((stats.avgConf * 100).toFixed(0)) + "٪"} color="text-violet-600 bg-violet-500/10" />
             </div>
 
@@ -227,10 +227,11 @@ export function OperatorView() {
               variant="outline"
               size="sm"
               className="gap-1.5"
+              title="وضعیت محلی است و روی سرور ذخیره نمی‌شود"
               onClick={() => setOnline((o) => !o)}
             >
               <span className={`size-2 rounded-full ${online ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
-              <span className="text-xs">{online ? "آنلاین" : "آفلاین"}</span>
+              <span className="text-xs">{online ? "آنلاین (محلی)" : "آفلاین (محلی)"}</span>
             </Button>
 
             <DropdownMenu>

@@ -65,14 +65,13 @@ export function WidgetTab({ tenantId }: { tenantId: string }) {
   if (error || !tenant) return <ErrorBlock message={error || undefined} onRetry={reload} />;
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const embedCode = `<!-- منشی هوشمند ${tenant.name} -->
+  // Tenant name is user-controlled — sanitize before embedding it in HTML/JS.
+  const safeName = tenant.name.replace(/--/g, "-").replace(/[<>]/g, "");
+  const safeAccent = /^#[0-9a-fA-F]{3,8}$/.test(accent) ? accent : "#10b981";
+  const embedCode = `<!-- AI Receptionist widget for ${safeName} -->
 <script src="${origin}/widget.js" async></script>
 <script>
-  AIReceptionist.init({
-    tenantId: "${tenantId}",
-    accentColor: "${accent}",
-    position: "left"
-  });
+  AIReceptionist.init(${JSON.stringify({ tenantId, accentColor: safeAccent, position: "left" }, null, 2)});
 </script>`;
 
   const copyEmbed = () => {

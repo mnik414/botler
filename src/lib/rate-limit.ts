@@ -50,12 +50,19 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
 }
 
 export function clientIp(req: Request): string {
+  // Prefer the header a trusted reverse proxy sets itself (Caddy/Traefik).
+  const real = req.headers.get("x-real-ip");
+  if (real && real.trim()) return real.trim();
+
   const xff = req.headers.get("x-forwarded-for");
   if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
+    // Proxies append the real client IP as the LAST hop; the first entry is
+    // client-controlled and must not be trusted for rate-limit bucketing.
+    const parts = xff.split(",").map((p) => p.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
   }
-  return req.headers.get("x-real-ip") || "unknown";
+  return "unknown";
 }
 
 export function tooManyRequests(retryAfterSec: number, message = "تعداد درخواست‌ها بیش از حد مجاز است. لطفاً کمی بعد تلاش کنید."): Response {

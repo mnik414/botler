@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { isResponse, requireTenant } from "@/lib/auth";
+import { isResponse, requireTenantOwner } from "@/lib/auth";
 
 // GET /api/billing/invoices?tenantId= — invoices for the tenant
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const auth = await requireTenant(req, searchParams.get("tenantId"));
+  const auth = await requireTenantOwner(req, searchParams.get("tenantId"));
   if (isResponse(auth)) return auth;
 
   const invoices = await db.invoice.findMany({

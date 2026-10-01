@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { listChannels } from "@/lib/channel-adapters";
-import { isResponse, requireTenant, requireTenantOwner } from "@/lib/auth";
+import { isResponse, requireTenantOwner } from "@/lib/auth";
 import { randomBytes } from "crypto";
 import { encryptSecret } from "@/lib/crypto";
 
-// GET /api/channels?tenantId= — list all channel connections for a tenant
+// GET /api/channels?tenantId= — list all channel connections for a tenant (owner-level)
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const auth = await requireTenant(req, searchParams.get("tenantId"));
+  const auth = await requireTenantOwner(req, searchParams.get("tenantId"));
   if (isResponse(auth)) return auth;
 
   const connections = await db.channelConnection.findMany({

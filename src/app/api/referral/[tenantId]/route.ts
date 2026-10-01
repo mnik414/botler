@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { isResponse, requireTenant } from "@/lib/auth";
+import { isResponse, requireTenantOwner } from "@/lib/auth";
 
 export async function GET(req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = await params;
-  const auth = await requireTenant(req, tenantId);
+  const auth = await requireTenantOwner(req, tenantId);
   if (isResponse(auth)) return auth;
 
   const referral = await db.referral.findUnique({ where: { tenantId: auth.tenantId } });

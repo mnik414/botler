@@ -51,9 +51,11 @@ export async function POST(req: Request) {
   if (pt.needsBaseUrl && !baseUrl) {
     return NextResponse.json({ error: "آدرس Base URL الزامی است برای ارائه‌دهنده سفارشی" }, { status: 400 });
   }
+  let normalizedBaseUrl = defaultBaseUrl(type);
   if (baseUrl) {
     const check = validateBaseUrl(String(baseUrl));
     if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
+    normalizedBaseUrl = check.url;
   }
 
   const provider = await db.aiProvider.create({
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
       name: name.trim(),
       type,
       apiKey: encryptSecret(apiKey || ""),
-      baseUrl: baseUrl || defaultBaseUrl(type),
+      baseUrl: normalizedBaseUrl,
       model: model || pt.defaultModel,
       isActive: true,
       isGlobal: isGlobal || false,

@@ -38,17 +38,20 @@ yarn-error.log*
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+*.sqlite-shm
+*.sqlite-wal
 prisma/**/*.db
 db/
 
-# local runtime / agent artifacts
+# local runtime / agent artifacts (root-level only — never match source dirs)
 .zscripts/dev.pid
 agent-ctx/
 tool-results/
-upload/
-download/
+/upload/
+/download/
 
 # vercel
 .vercel

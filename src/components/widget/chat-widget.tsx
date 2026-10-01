@@ -37,9 +37,18 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load tenant info + greeting
+  // Load tenant info + greeting. Also resets ALL conversation state so
+  // switching businesses can never leak a previous conversation/token.
   useEffect(() => {
     let mounted = true;
+    setConversationId(null);
+    setTrackToken(null);
+    setLastMeta(null);
+    setInput("");
+    setMessages([]);
+    recognitionRef.current?.stop?.();
+    recognitionRef.current = null;
+    setListening(false);
     (async () => {
       try {
         const t = await api<any>(`/api/tenants/${tenantId}`);
@@ -64,9 +73,19 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
     };
   }, [tenantId]);
 
+  // Stop recording when the floating panel closes (the component stays mounted).
   useEffect(() => {
+    if (!open) {
+      recognitionRef.current?.stop?.();
+      recognitionRef.current = null;
+      setListening(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, open]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -75,13 +94,18 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
     const userMsg: ChatMessage = { role: "user", content: text, createdAt: new Date().toISOString() };
     setMessages((m) => [...m, userMsg]);
     setLoading(true);
+    // Idempotency key: a retry of this exact message never double-charges.
+    const clientMessageId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     try {
       const res = await api<ChatResponse>("/api/chat", {
         method: "POST",
-        body: JSON.stringify({ tenantId, conversationId, message: text, history: messages }),
+        body: JSON.stringify({ tenantId, conversationId, trackToken, message: text, history: messages, clientMessageId }),
       });
       setConversationId(res.conversationId);
-      if ((res as any).trackToken) setTrackToken((res as any).trackToken);
+      if (res.trackToken) setTrackToken(res.trackToken);
       setMessages((m) => [
         ...m,
         { role: "assistant", content: res.reply, confidence: res.confidence, sources: res.sources, createdAt: new Date().toISOString() },
@@ -89,12 +113,14 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
       setLastMeta(res);
       if (res.leadCreated) toast.success("اطلاعات شما ثبت شد، به‌زودی تماس می‌گیریم.");
       if (res.bookingCreated) toast.success(`${res.bookingCreated.label} شما ثبت شد ✓`);
-    } catch (e: any) {
+    } catch {
+      // Keep the user's text so nothing is lost on a transient failure.
+      setInput((prev) => (prev ? prev : text));
       setMessages((m) => [...m, { role: "assistant", content: "متأسفم، خطایی رخ داد. لطفاً دوباره تلاش کنید.", createdAt: new Date().toISOString() }]);
     } finally {
       setLoading(false);
     }
-  }, [input, loading, conversationId, tenantId, messages]);
+  }, [input, loading, conversationId, tenantId, trackToken, messages]);
 
   // File upload — sends the file content as a user message + uploads to knowledge base
   const onFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -282,10 +308,11 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
                   toast.error("کپی ممکن نشد");
                 }
               }}
-              className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+              className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 min-w-0"
               title="برای پیگیری درخواست، این کد و شماره تلفن خود را در صفحه پیگیری وارد کنید"
             >
-              کد پیگیری: <span className="font-mono" dir="ltr">{trackToken.slice(0, 8)}</span>
+              کد پیگیری:
+              <span className="font-mono truncate max-w-[120px]" dir="ltr">{trackToken}</span>
             </button>
           ) : lastMeta?.leadCreated ? (
             <span className="text-[10px] text-emerald-600 flex items-center gap-1"><UserPlus className="size-3" /> لید ثبت شد</span>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isResponse, requireTenant } from "@/lib/auth";
+import { normalizePhone } from "@/lib/ai-engine";
 
 const ALLOWED_STATUS = ["new", "contacted", "converted", "lost"];
 const ALLOWED_INTENTS = ["inquiry", "order", "booking", "appointment", "callback"];
@@ -33,7 +34,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data.intent = body.intent;
   }
   if ("name" in body && typeof body.name === "string") data.name = body.name.slice(0, 200);
-  if ("phone" in body && typeof body.phone === "string") data.phone = body.phone.replace(/[^\d+]/g, "").slice(0, 20);
+  if ("phone" in body && typeof body.phone === "string") {
+    const canonical = normalizePhone(body.phone);
+    if (!canonical) return NextResponse.json({ error: "شماره تماس معتبر نیست" }, { status: 400 });
+    data.phone = canonical;
+  }
   if ("email" in body && typeof body.email === "string") data.email = body.email.slice(0, 200);
   if ("value" in body && typeof body.value === "number" && Number.isFinite(body.value) && body.value >= 0) {
     data.value = Math.round(body.value);

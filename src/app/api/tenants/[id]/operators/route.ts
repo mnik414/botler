@@ -82,8 +82,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (auth.user.role !== "super_admin") {
       return NextResponse.json({ error: "حذف مالک کسب‌وکار فقط توسط مدیر پلتفرم امکان‌پذیر است" }, { status: 403 });
     }
-    const owners = await db.user.count({ where: { tenantId: auth.tenantId, role: "business_owner" } });
-    if (owners <= 1) return NextResponse.json({ error: "نمی‌توان آخرین صاحب کسب‌وکار را حذف کرد" }, { status: 400 });
+    // Count + delete in one transaction so two concurrent requests cannot both
+    // observe two owners and delete the last two.
+    const removed = await db.$transaction(async (tx) => {
+      const owners = await tx.user.count({ where: { tenantId: auth.tenantId, role: "business_owner" } });
+      if (owners <= 1) return false;
+      await tx.user.delete({ where: { id: userId } });
+      return true;
+    });
+    if (!removed) return NextResponse.json({ error: "نمی‌توان آخرین صاحب کسب‌وکار را حذف کرد" }, { status: 400 });
+    return NextResponse.json({ ok: true });
   }
   await db.user.delete({ where: { id: userId } });
   return NextResponse.json({ ok: true });

@@ -39,7 +39,7 @@ export function AdminRevenue() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="MRR (درآمد ماهانه)" value={formatToman(k.mrr)} icon={<TrendingUp className="size-4" />} accent="primary" />
         <StatCard label="درآمد کل" value={formatToman(k.totalRevenue)} hint="مجموع صورتحساب‌های پرداخت‌شده" icon={<Wallet className="size-4" />} accent="amber" />
-        <StatCard label="تعداد صورتحساب" value={formatNumber(data.revenueTrend.filter((p) => p.revenue > 0).length) + " دوره"} icon={<Receipt className="size-4" />} accent="teal" />
+        <StatCard label="روزهای دارای درآمد" value={formatNumber(data.revenueTrend.filter((p) => p.revenue > 0).length) + " روز"} hint="در ۳۰ روز اخیر" icon={<Receipt className="size-4" />} accent="teal" />
         <StatCard label="میانگین ARPU" value={formatToman(k.totalTenants > 0 ? Math.round(k.mrr / k.totalTenants) : 0)} hint="درآمد سرانه هر کسب‌وکار" icon={<Calculator className="size-4" />} accent="pink" />
       </div>
 

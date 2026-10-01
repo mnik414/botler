@@ -68,6 +68,8 @@ model Tenant {
   tokenLogs       TokenUsageLog[]
   internalLeads   InternalLead[]
   channelConnections ChannelConnection[]
+  aiProviders     AiProvider[]
+  processedEvents ProcessedEvent[]
 
   @@index([businessType])
   @@index([category])
@@ -128,6 +130,7 @@ model Agent {
 model AiProvider {
   id          String   @id @default(cuid())
   tenantId    String?  // null = global provider (available to all tenants)
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String   // display name, e.g. "OpenAI تولیدی"
   type        String   // zai | openai | anthropic | gemini | openrouter | custom
   apiKey      String   // secret (stored; in production would be encrypted)
@@ -196,6 +199,8 @@ model Conversation {
   operator      User?      @relation("OperatorConversations", fields: [operatorId], references: [id])
   messages      Message[]
   leads         Lead[]
+  bookings      Booking[]
+  internalLeads InternalLead[]
 
   @@index([tenantId])
   @@index([status])
@@ -212,10 +217,12 @@ model Message {
   tokens         Int      @default(0)
   sourcesJson    String   @default("[]") // knowledge item ids used
   handoff        Boolean  @default(false)
+  clientKey      String?  // client-generated idempotency key (widget retries)
   createdAt      DateTime @default(now())
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@unique([conversationId, clientKey])
   @@index([conversationId])
   @@index([conversationId, createdAt])
   @@index([role])
@@ -246,6 +253,7 @@ model Lead {
   @@unique([tenantId, phone])
   @@index([tenantId])
   @@index([status])
+  @@index([tenantId, status, createdAt])
 }
 
 model Booking {
@@ -257,13 +265,19 @@ model Booking {
   payloadJson    String   @default("{}") // booking details
   status         String   @default("pending") // pending | confirmed | cancelled
   scheduledAt    DateTime?
+  // Set to "<conversationId>:<type>" on create so concurrent duplicate
+  // detections collapse via the unique constraint.
+  dedupeKey      String?  @unique
   createdAt      DateTime @default(now())
 
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lead           Lead?    @relation(fields: [leadId], references: [id])
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([status])
+  @@index([conversationId, type, status])
+  @@index([tenantId, createdAt])
 }
 
 // ────────────────────────────────────────────────────────────
@@ -293,8 +307,17 @@ model Invoice {
   id          String   @id @default(cuid())
   tenantId    String
   planId      String
-  amount      Int
-  status      String   @default("paid") // paid | pending | failed
+  subtotal    Int      @default(0) // pre-tax amount in Toman
+  tax         Int      @default(0) // 9% VAT in Toman
+  amount      Int      // total charged (subtotal + tax)
+  currency    String   @default("IRT") // IRT (Toman) | USDT
+  usdtRate    Float?   // Toman per USDT snapshot at checkout
+  usdtAmount  Float?   // quoted USDT amount (display / manual payment)
+  billingCycle String  @default("monthly") // monthly | quarterly | yearly
+  months      Int      @default(1) // months of service covered
+  status      String   @default("pending") // paid | pending | failed
+  paymentRef  String   @default("")
+  paidAt      DateTime?
   periodStart DateTime
   periodEnd   DateTime
   createdAt   DateTime @default(now())
@@ -303,6 +326,8 @@ model Invoice {
   plan        Plan     @relation(fields: [planId], references: [id])
 
   @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([createdAt])
 }
 
 model TokenUsageLog {
@@ -328,9 +353,17 @@ model ProcessedEvent {
   platform  String
   eventKey  String
   tenantId  String
+  // pending = in-flight; done = fully handled. replyText lets a platform
+  // retry resend a stored reply instead of re-running the AI (and re-billing).
+  status    String   @default("pending") // pending | done
+  replyText String   @default("")
   createdAt DateTime @default(now())
 
-  @@unique([platform, eventKey])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // event ids (e.g. Telegram update_id) are unique per bot/connection, not
+  // globally — scope the dedup key by tenant to avoid cross-tenant collisions.
+  @@unique([tenantId, platform, eventKey])
   @@index([tenantId])
   @@index([createdAt])
 }
@@ -364,9 +397,12 @@ model InternalLead {
   createdAt   DateTime @default(now())
 
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
+  @@unique([tenantId, conversationId])
   @@index([tenantId])
   @@index([status])
+  @@index([conversationId])
 }
 
 // ────────────────────────────────────────────────────────────

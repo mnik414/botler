@@ -11,9 +11,12 @@ An intelligent AI receptionist platform for businesses. Manage conversations, le
   ```bash
   openssl rand -base64 48
   ```
-- Rotate any provider keys / bot tokens that were ever committed to this repository.
-- All tenant APIs require authentication and derive the tenant from the session.
-- Channel webhooks require the platform signature/secret (`appSecret` for Meta, secret token for Telegram/Bale).
+- `SECRETS_ENCRYPTION_KEY` (optional but recommended) is used to encrypt provider keys / channel credentials at rest. When unset it falls back to `JWT_SECRET` — set a dedicated key so rotating the JWT secret does not lock encrypted secrets.
+- **Git history incident**: older commits contain local SQLite databases with bcrypt password hashes and user emails, plus a `.env` blob. Rotate every credential/password that ever touched those databases and scrub history (`git filter-repo`/BFG) before making the repository public. See `docs/AUDIT.md`.
+- All tenant APIs require authentication and derive the tenant from the session; suspended tenants are blocked.
+- Channel webhooks require the platform signature/secret (`appSecret` for Meta, secret token for Telegram/Bale). Webhook processing is idempotent per tenant and retries never re-run (or re-bill) the model.
+- Rate limiting trusts `X-Real-IP` (or the last hop of `X-Forwarded-For`) — make sure the reverse proxy sets these (the bundled Caddyfile does).
+- Logout revokes the session server-side (`tokenVersion` bump).
 
 ---
 
@@ -31,10 +34,13 @@ export NEXT_PUBLIC_BASE_URL="https://botler.help"
 ### 2. Build and start
 
 ```bash
+mkdir -p db
+# The container runs as uid/gid 1001 (non-root) — make the SQLite volume writable:
+sudo chown -R 1001:1001 db
 docker compose up -d --build
 ```
 
-The container runs `prisma migrate deploy` automatically on start (see `docker-entrypoint.sh`), then starts the Next.js server. A health check is exposed at `/api/health`.
+The container runs `prisma migrate deploy` automatically on start (see `docker-entrypoint.sh`), then starts the Next.js server. A health check is exposed at `/api/health` (DB reachability + applied migrations). The entrypoint refuses to start without a valid `JWT_SECRET`/`DATABASE_URL`.
 
 > Upgrading an **existing** database that was created with `prisma db push`?
 > Apply the new schema and align the migration history once:
@@ -46,8 +52,11 @@ The container runs `prisma migrate deploy` automatically on start (see `docker-e
 
 ### 3. Seed demo data (optional, empty database only)
 
+Demo data contains public default credentials, so seeding is blocked when
+`NODE_ENV=production`. Opt in explicitly on a throwaway/demo database:
+
 ```bash
-docker compose exec botler npm run db:seed
+docker compose exec -e ALLOW_PROD_SEED=1 botler npm run db:seed
 ```
 
 Demo credentials (development only — change them before any real use):
@@ -69,7 +78,7 @@ cp .env.example .env
 npm install
 npx prisma generate
 npx prisma migrate deploy    # applies prisma/migrations
-npm run db:seed              # optional demo data
+npm run db:seed              # optional demo data (refuses to run with NODE_ENV=production unless ALLOW_PROD_SEED=1)
 npm run dev
 ```
 
@@ -107,7 +116,22 @@ npm run build       # production build
 
 ## 💳 Billing
 
-Plan checkout creates a **pending invoice**; payment is confirmed manually by the platform admin (there is no online gateway wired yet). `payment_instructions` can be configured via the `PlatformConfig` key `payment_instructions` (`{"text": "..."}`).
+Plan checkout creates a **pending invoice** (idempotent within a 30-minute window); payment is confirmed manually by the platform admin through:
+
+```
+PATCH /api/admin/invoices/:id   { "action": "mark_paid" | "mark_failed" | "mark_pending", "paymentRef": "..." }
+```
+
+`mark_paid` atomically marks the invoice paid, applies the plan to the subscription (`active`, usage reset, `renewsAt` extended with month-end clamping) and updates the tenant. There is still no online gateway. `payment_instructions` can be configured via the `PlatformConfig` key `payment_instructions` (`{"text": "..."}`). Trials never auto-convert to paid — an expired trial is blocked until a paid invoice is applied.
+
+## 🗄️ Scaling / PostgreSQL
+
+The app currently runs on SQLite (single instance, `connection_limit=1`, WAL + busy timeout). Before running multiple replicas or moving to serverless:
+
+1. Change `datasource.provider` to `postgresql` and `DATABASE_URL` accordingly.
+2. `npx prisma migrate dev --name init_pg` on a fresh database (migrations are SQLite-specific; regenerate for Postgres).
+3. Replace the in-memory rate limiter (`src/lib/rate-limit.ts`) with Redis.
+4. Revisit the SQLite-only `_prisma_migrations` health check (`/api/health`) and backup script.
 
 ---
 

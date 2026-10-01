@@ -90,7 +90,15 @@ export const useApp = create<AppState>()(
       },
       // Set the session without changing the current view (used on boot rehydration)
       restoreSession: (session) => set({ session }),
-      clearSession: () => set({ session: null, view: "landing" }),
+      // Drop the session. Public views stay addressable — only kick the user
+      // out of protected views (expired session on dashboard/admin/operator).
+      clearSession: () =>
+        set((state) => {
+          const protectedViews: View[] = ["dashboard", "admin", "operator"];
+          const view = protectedViews.includes(state.view) ? "landing" : state.view;
+          if (view !== state.view) updateUrl(view);
+          return { session: null, view };
+        }),
       logout: async () => {
         try {
           await fetch("/api/auth/logout", { method: "POST", credentials: "include" });

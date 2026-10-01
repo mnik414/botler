@@ -160,7 +160,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="border-t py-4 text-center text-xs text-muted-foreground">
-          © ۱۴۰۴ منشی هوشمند — تمام حقوق محفوظ است. ساخته‌شده با Next.js و هوش مصنوعی Z.ai
+          © ۱۴۰۵ باتلر | منشی هوشمند — تمام حقوق محفوظ است. ساخته‌شده توسط تیم باتلر
         </div>
       </footer>
     </div>

@@ -6,6 +6,10 @@ import { rateLimit } from "../src/lib/rate-limit";
 import { validateBaseUrl } from "../src/lib/llm-providers";
 import { getChannelAdapter } from "../src/lib/channel-adapters";
 import { encryptSecret, decryptSecret } from "../src/lib/crypto";
+import { normalizePhone } from "../src/lib/ai-engine";
+import { addMonthsClamped } from "../src/lib/date";
+import { safeEqual } from "../src/lib/safe-equal";
+import { parsePagination } from "../src/lib/pagination";
 
 test("toEn converts Persian and Arabic-Indic digits", () => {
   assert.equal(toEn("۰۹۱۲۳۴۵۶۷۸۹"), "09123456789");
@@ -55,14 +59,14 @@ test("telegram adapter verifies webhook secret and extracts event key", () => {
   assert.equal(adapter.verifyWebhook({ "x-telegram-bot-api-secret-token": "wrong" }, "", ctx), false);
   assert.equal(adapter.verifyWebhook({}, "", ctx), false);
 
-  const parsed = adapter.parseIncomingMessage({
+  const parsed = adapter.parseIncomingMessages({
     update_id: 42,
     message: { message_id: 7, text: "سلام", chat: { id: 123 }, from: { first_name: "علی" } },
   });
-  assert.ok(parsed);
-  assert.equal(parsed.eventKey, "42");
-  assert.equal(parsed.senderId, "123");
-  assert.equal(parsed.text, "سلام");
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].eventKey, "42");
+  assert.equal(parsed[0].senderId, "123");
+  assert.equal(parsed[0].text, "سلام");
 });
 
 test("instagram adapter rejects missing app secret", () => {
@@ -77,6 +81,50 @@ test("stub adapters reject webhooks instead of accepting everything", () => {
     assert.ok(adapter);
     assert.equal(adapter.verifyWebhook({}, "{}", { secret: "x", credentials: {} }), false, platform);
   }
+});
+
+test("addMonthsClamped never overflows into the next month", () => {
+  const localDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  // Jan 31 + 1 month must be Feb 28/29, not Mar 2/3
+  assert.equal(localDate(addMonthsClamped(new Date(2026, 0, 31), 1)), "2026-02-28");
+  assert.equal(localDate(addMonthsClamped(new Date(2024, 0, 31), 1)), "2024-02-29");
+  // 12 months from Feb 29 must land on Feb 28 of the next year
+  assert.equal(localDate(addMonthsClamped(new Date(2024, 1, 29), 12)), "2025-02-28");
+  assert.equal(localDate(addMonthsClamped(new Date(2026, 2, 31), 3)), "2026-06-30");
+});
+
+test("normalizePhone canonicalizes Iranian mobiles and rejects digit noise", () => {
+  assert.equal(normalizePhone("09123456789"), "+989123456789");
+  assert.equal(normalizePhone("+98 912 345 6789"), "+989123456789");
+  assert.equal(normalizePhone("۹۱۲۳۴۵۶۷۸۹"), "+989123456789");
+  assert.equal(normalizePhone("00989123456789"), "+989123456789");
+  // Digits inside a card/order number must NOT become a phone
+  assert.equal(normalizePhone("شماره کارت 6037991234567890"), "");
+  assert.equal(normalizePhone("کد سفارش 912345678"), "");
+});
+
+test("safeEqual is length-safe and value-correct", () => {
+  assert.equal(safeEqual("secret", "secret"), true);
+  assert.equal(safeEqual("secret", "secreT"), false);
+  assert.equal(safeEqual("secret", "secret-longer"), false);
+  assert.equal(safeEqual("", ""), true);
+});
+
+test("validateBaseUrl blocks IPv6/CGNAT/credential/base-path SSRF forms", () => {
+  assert.equal(validateBaseUrl("https://[::ffff:127.0.0.1]/v1").ok, false);
+  assert.equal(validateBaseUrl("https://[::]/v1").ok, false);
+  assert.equal(validateBaseUrl("https://100.100.100.200/v1").ok, false);
+  assert.equal(validateBaseUrl("https://user:pass@api.openai.com/v1").ok, false);
+  assert.equal(validateBaseUrl("https://api.openai.com/v1/chat/completions").ok, false);
+  assert.equal(validateBaseUrl("https://api.openai.com/v1?x=1#y").ok, true);
+});
+
+test("parsePagination bounds limit and offset", () => {
+  const p = new URLSearchParams("limit=9999&offset=10");
+  assert.deepEqual(parsePagination(p, { limit: 100, max: 200 }), { limit: 200, offset: 10 });
+  assert.deepEqual(parsePagination(new URLSearchParams(""), { limit: 100, max: 200 }), { limit: 100, offset: 0 });
+  assert.deepEqual(parsePagination(new URLSearchParams("limit=-3"), { limit: 100, max: 200 }), { limit: 100, offset: 0 });
 });
 
 test("secret encryption round-trips and leaves legacy plaintext readable", () => {

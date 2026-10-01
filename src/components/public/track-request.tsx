@@ -99,21 +99,21 @@ export function TrackRequestPage() {
   const [result, setResult] = React.useState<TrackResponse | null>(null);
   const [searched, setSearched] = React.useState(false);
 
-  // Pre-select active tenant from store
+  // Always load the tenant list so the selector stays usable. A persisted
+  // activeTenantId is only used as the initial selection, never to skip loading.
   React.useEffect(() => {
-    if (activeTenantId) setTenantId(activeTenantId);
-  }, [activeTenantId]);
-
-  // Fetch tenant list only when no pre-selected tenant
-  React.useEffect(() => {
-    if (activeTenantId) {
-      setTenantsLoading(false);
-      return;
-    }
     let mounted = true;
     setTenantsLoading(true);
     api<MarketplaceItem[]>("/api/marketplace")
-      .then((d) => mounted && (setTenants(d), setTenantId((prev) => prev || (d[0]?.id ?? ""))))
+      .then((d) => {
+        if (!mounted) return;
+        setTenants(d);
+        setTenantId((prev) => {
+          if (prev && d.some((x) => x.id === prev)) return prev;
+          const persisted = activeTenantId ? d.find((x) => x.id === activeTenantId) : undefined;
+          return persisted?.id || d[0]?.id || "";
+        });
+      })
       .catch(() => mounted && setTenants([]))
       .finally(() => mounted && setTenantsLoading(false));
     return () => {

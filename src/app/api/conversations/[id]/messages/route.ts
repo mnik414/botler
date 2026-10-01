@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isResponse, requireTenant } from "@/lib/auth";
+import { parsePagination } from "@/lib/pagination";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,10 +12,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const convo = await db.conversation.findFirst({ where: { id, tenantId: auth.tenantId }, select: { id: true } });
   if (!convo) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  const { limit, offset } = parsePagination(searchParams, { limit: 500, max: 1000 });
   const messages = await db.message.findMany({
     where: { conversationId: id },
     orderBy: { createdAt: "asc" },
-    take: 500,
+    take: limit,
+    skip: offset,
   });
   return NextResponse.json(
     messages.map((m) => {

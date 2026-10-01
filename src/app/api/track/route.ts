@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { normalizePhone } from "@/lib/ai-engine";
 
 // Phone + per-conversation track token are required so phone numbers cannot be
 // enumerated. The token is shown to the end user by the chat widget.
-function normalizePhone(phone: string): string {
-  return phone
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-    .replace(/[^\d+]/g, "")
-    .slice(0, 20);
-}
 
 function safePayload(json: string): any {
   try {
@@ -35,8 +29,16 @@ export async function GET(req: Request) {
   }
 
   const phone = normalizePhone(phoneRaw);
+  if (!phone) {
+    return NextResponse.json({ found: false, conversations: [], leads: [], bookings: [] });
+  }
+  // Match canonical E.164 plus legacy stored formats (09…, 9…, +98…).
+  const local = phone.slice(3);
   const conversation = await db.conversation.findFirst({
-    where: { trackToken: token, endUserPhone: phone },
+    where: {
+      trackToken: token,
+      endUserPhone: { in: [phone, local, `0${local}`] },
+    },
     select: { id: true, tenantId: true, status: true, channel: true, createdAt: true, updatedAt: true, messageCount: true },
   });
   if (!conversation) {

@@ -118,6 +118,7 @@ export function KnowledgeTab({ tenantId }: { tenantId: string }) {
   };
 
   const remove = async (id: string) => {
+    if (!window.confirm("این منبع دانش حذف شود؟ این عملیات قابل بازگشت نیست.")) return;
     setDeletingId(id);
     try {
       await api(`/api/knowledge/${id}?tenantId=${tenantId}`, { method: "DELETE" });

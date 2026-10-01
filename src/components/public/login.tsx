@@ -26,6 +26,7 @@ export function LoginPage() {
       const res = await api<Session>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
+        skipAuthEvent: true,
       });
       toast.success("ورود موفقیت‌آمیز بود");
       setSession(res);
