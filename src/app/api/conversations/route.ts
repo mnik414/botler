@@ -1,30 +1,46 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isResponse, requireTenant } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
-  if (!tenantId) return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+  const auth = await requireTenant(req, searchParams.get("tenantId"));
+  if (isResponse(auth)) return auth;
 
   const convos = await db.conversation.findMany({
-    where: { tenantId },
+    where: { tenantId: auth.tenantId },
     include: {
       messages: { orderBy: { createdAt: "asc" }, take: 50 },
       _count: { select: { messages: true } },
     },
     orderBy: { updatedAt: "desc" },
+    take: 100,
   });
   return NextResponse.json(convos);
 }
 
-// Operator replies manually — requires tenantId to verify ownership (isolation)
+// Operator replies manually
 export async function POST(req: Request) {
-  const { conversationId, content, tenantId, operatorName = "اپراتور" } = await req.json();
-  if (!tenantId || !conversationId || !content) {
-    return NextResponse.json({ error: "tenantId, conversationId, content required" }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "بدنه درخواست نامعتبر است" }, { status: 400 });
   }
-  // Verify the conversation belongs to this tenant
-  const convo = await db.conversation.findFirst({ where: { id: conversationId, tenantId } });
+
+  const auth = await requireTenant(req, body.tenantId);
+  if (isResponse(auth)) return auth;
+
+  const { conversationId, content } = body;
+  if (typeof conversationId !== "string" || typeof content !== "string" || !conversationId || !content.trim()) {
+    return NextResponse.json({ error: "conversationId و متن پیام الزامی است" }, { status: 400 });
+  }
+  if (content.length > 5000) {
+    return NextResponse.json({ error: "متن پیام بیش از حد طولانی است" }, { status: 400 });
+  }
+
+  const convo = await db.conversation.findFirst({
+    where: { id: conversationId, tenantId: auth.tenantId },
+    select: { id: true },
+  });
   if (!convo) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const msg = await db.message.create({
@@ -32,7 +48,7 @@ export async function POST(req: Request) {
   });
   await db.conversation.update({
     where: { id: conversationId },
-    data: { status: "ai", messageCount: { increment: 1 } },
+    data: { status: "ai", operatorId: auth.user.id, messageCount: { increment: 1 } },
   });
   return NextResponse.json(msg, { status: 201 });
 }

@@ -13,11 +13,26 @@ export function toEn(s: string): string {
 }
 
 export function formatToman(n: number): string {
-  return toFa(n.toLocaleString("en-US")) + " تومان";
+  return formatNumber(n) + " تومان";
 }
 
 export function formatNumber(n: number): string {
-  return toFa(n.toLocaleString("en-US"));
+  try {
+    return new Intl.NumberFormat("fa-IR").format(n);
+  } catch {
+    return toFa(n.toLocaleString("en-US"));
+  }
+}
+
+// Formats a "YYYY-MM-DD" day key as a Jalali short date without timezone drift
+export function formatDay(d: string | Date): string {
+  const iso = typeof d === "string" ? d : d.toISOString().slice(0, 10);
+  const date = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  try {
+    return new Intl.DateTimeFormat("fa-IR", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+  } catch {
+    return iso.slice(5);
+  }
 }
 
 export function formatCompact(n: number): string {
@@ -29,7 +44,14 @@ export function formatCompact(n: number): string {
 export function formatDate(d: string | Date): string {
   const date = typeof d === "string" ? new Date(d) : d;
   try {
-    return new Intl.DateTimeFormat("fa-IR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+    return new Intl.DateTimeFormat("fa-IR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Tehran",
+    }).format(date);
   } catch {
     return date.toLocaleDateString();
   }

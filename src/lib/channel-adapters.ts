@@ -2,7 +2,21 @@
 // Each platform implements: sendMessage, verifyWebhook, parseIncomingMessage.
 // Adding a new platform = implement ChannelAdapter + register in CHANNEL_REGISTRY.
 
-export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "bale" | "tiktok" | "airbnb" | "widget" | "voice" | "sms";
+import { createHmac, timingSafeEqual } from "crypto";
+
+export type PlatformCode = "instagram" | "whatsapp" | "telegram" | "bale" | "tiktok" | "airbnb" | "widget" | "voice";
+
+export interface IncomingMessage {
+  senderId: string;
+  senderName: string;
+  text: string;
+  eventKey: string; // unique per platform event, used for idempotency
+}
+
+export interface WebhookContext {
+  secret: string; // per-connection generated secret
+  credentials: any; // decrypted/parsed credentials JSON
+}
 
 export interface ChannelAdapter {
   code: PlatformCode;
@@ -14,10 +28,27 @@ export interface ChannelAdapter {
   credentialsFields: { key: string; label: string; type: "text" | "password"; placeholder: string; required: boolean }[];
   // Send a message to a user on this platform
   sendMessage(credentials: any, recipientId: string, text: string): Promise<{ ok: boolean; error?: string }>;
-  // Verify incoming webhook signature
-  verifyWebhook(headers: any, body: any, secret: string): boolean;
+  // Verify incoming webhook signature using the raw request body
+  verifyWebhook(headers: Record<string, string>, rawBody: string, ctx: WebhookContext): boolean;
   // Parse incoming webhook into a standard message
-  parseIncomingMessage(body: any): { senderId: string; senderName: string; text: string } | null;
+  parseIncomingMessage(body: any): IncomingMessage | null;
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
+// Meta (Instagram/WhatsApp) signs payloads with the app secret:
+// X-Hub-Signature-256: sha256=<hex hmac of raw body>
+function verifyMetaSignature(headers: Record<string, string>, rawBody: string, appSecret: string | undefined): boolean {
+  if (!appSecret) return false;
+  const header = headers["x-hub-signature-256"];
+  if (!header || !header.startsWith("sha256=")) return false;
+  const expected = createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
+  return safeEqual(header.slice("sha256=".length), expected);
 }
 
 // ────────────────────────────────────────────────────────────
@@ -39,22 +70,23 @@ const InstagramAdapter: ChannelAdapter = {
   credentialsFields: [
     { key: "accessToken", label: "Access Token", type: "password", placeholder: "IGQVJ...", required: true },
     { key: "pageId", label: "Page ID", type: "text", placeholder: "123456789", required: true },
+    { key: "appSecret", label: "App Secret", type: "password", placeholder: "Meta App Secret", required: true },
     { key: "verifyToken", label: "Verify Token", type: "text", placeholder: "your-verify-token", required: true },
   ],
   async sendMessage(creds: any, recipientId: string, text: string) {
     try {
-      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.pageId}/messages?access_token=${creds.accessToken}`, {
+      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.pageId}/messages?access_token=${encodeURIComponent(creds.accessToken)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipient: { id: recipientId }, message: { text } }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
-  verifyWebhook(headers: any, body: any, secret: string) {
-    // Meta sends "x-hub-signature-256" header — in production verify with HMAC
-    return true; // simplified
+  verifyWebhook(headers, rawBody, ctx) {
+    return verifyMetaSignature(headers, rawBody, ctx.credentials?.appSecret);
   },
   parseIncomingMessage(body: any) {
     const entry = body?.entry?.[0];
@@ -64,6 +96,7 @@ const InstagramAdapter: ChannelAdapter = {
       senderId: messaging.sender?.id || "",
       senderName: messaging.sender?.username || "کاربر اینستاگرام",
       text: messaging.message.text,
+      eventKey: String(messaging.message?.mid || messaging.timestamp || ""),
     };
   },
 };
@@ -87,20 +120,24 @@ const WhatsAppAdapter: ChannelAdapter = {
   credentialsFields: [
     { key: "accessToken", label: "Access Token", type: "password", placeholder: "EAAG...", required: true },
     { key: "phoneNumberId", label: "Phone Number ID", type: "text", placeholder: "123456789", required: true },
+    { key: "appSecret", label: "App Secret", type: "password", placeholder: "Meta App Secret", required: true },
     { key: "verifyToken", label: "Verify Token", type: "text", placeholder: "your-verify-token", required: true },
   ],
   async sendMessage(creds: any, recipientId: string, text: string) {
     try {
-      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.phoneNumberId}/messages?access_token=${creds.accessToken}`, {
+      const res = await fetch(`https://graph.facebook.com/v18.0/${creds.phoneNumberId}/messages?access_token=${encodeURIComponent(creds.accessToken)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messaging_product: "whatsapp", to: recipientId, type: "text", text: { body: text } }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
-  verifyWebhook(headers: any, body: any, secret: string) { return true; },
+  verifyWebhook(headers, rawBody, ctx) {
+    return verifyMetaSignature(headers, rawBody, ctx.credentials?.appSecret);
+  },
   parseIncomingMessage(body: any) {
     const entry = body?.entry?.[0];
     const change = entry?.changes?.[0];
@@ -110,6 +147,7 @@ const WhatsAppAdapter: ChannelAdapter = {
       senderId: msg.from || "",
       senderName: change?.value?.contacts?.[0]?.profile?.name || msg.from || "کاربر واتساپ",
       text: msg.text.body,
+      eventKey: String(msg.id || ""),
     };
   },
 };
@@ -139,13 +177,16 @@ const BaleAdapter: ChannelAdapter = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: recipientId, text }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
-  verifyWebhook(headers: any, body: any, secret: string) {
-    return true;
+  verifyWebhook(headers, _rawBody, ctx) {
+    if (!ctx.secret) return false;
+    const provided = headers["x-telegram-bot-api-secret-token"] || headers["x-bale-bot-api-secret-token"] || "";
+    return provided.length > 0 && safeEqual(provided, ctx.secret);
   },
   parseIncomingMessage(body: any) {
     const msg = body?.message;
@@ -154,6 +195,7 @@ const BaleAdapter: ChannelAdapter = {
       senderId: String(msg.chat?.id || msg.from?.id || ""),
       senderName: msg.from?.first_name || msg.from?.username || "کاربر بله",
       text: msg.text,
+      eventKey: String(body?.update_id ?? msg.message_id ?? ""),
     };
   },
   // Bale-specific: set webhook on save (similar to Telegram)
@@ -162,7 +204,8 @@ const BaleAdapter: ChannelAdapter = {
       const res = await fetch(`https://tapi.bale.ai/bot${botToken}/setWebhook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: webhookUrl }),
+        body: JSON.stringify({ url: webhookUrl, secret_token: secret }),
+        signal: AbortSignal.timeout(10000),
       });
       return res.ok;
     } catch { return false; }
@@ -192,15 +235,17 @@ const TelegramAdapter: ChannelAdapter = {
       const res = await fetch(`https://api.telegram.org/bot${creds.botToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: recipientId, text, parse_mode: "HTML" }),
+        body: JSON.stringify({ chat_id: recipientId, text }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
-  verifyWebhook(headers: any, body: any, secret: string) {
-    // Telegram sends "X-Telegram-Bot-Api-Secret-Token" header
-    return headers?.["x-telegram-bot-api-secret-token"] === secret || true;
+  verifyWebhook(headers, _rawBody, ctx) {
+    if (!ctx.secret) return false;
+    const provided = headers["x-telegram-bot-api-secret-token"] || "";
+    return provided.length > 0 && safeEqual(provided, ctx.secret);
   },
   parseIncomingMessage(body: any) {
     const msg = body?.message;
@@ -209,11 +254,15 @@ const TelegramAdapter: ChannelAdapter = {
       senderId: String(msg.chat?.id || ""),
       senderName: msg.from?.first_name || msg.from?.username || "کاربر تلگرام",
       text: msg.text,
+      eventKey: String(body?.update_id ?? msg.message_id ?? ""),
     };
   },
   // Telegram-specific: set webhook on save
   async setWebhook(botToken: string, webhookUrl: string, secret: string) {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook?url=${webhookUrl}&secret_token=${secret}`);
+    const res = await fetch(
+      `https://api.telegram.org/bot${encodeURIComponent(botToken)}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${encodeURIComponent(secret)}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
     return res.ok;
   },
 } as any;
@@ -237,6 +286,7 @@ const TikTokAdapter: ChannelAdapter = {
   credentialsFields: [
     { key: "accessToken", label: "Access Token", type: "password", placeholder: "tt.xxx...", required: true },
     { key: "appId", label: "App ID", type: "text", placeholder: "123456789", required: true },
+    { key: "appSecret", label: "App Secret", type: "password", placeholder: "TikTok App Secret", required: true },
     { key: "verifyToken", label: "Verify Token", type: "text", placeholder: "your-verify-token", required: true },
   ],
   async sendMessage(creds: any, recipientId: string, text: string) {
@@ -245,12 +295,19 @@ const TikTokAdapter: ChannelAdapter = {
         method: "POST",
         headers: { "Content-Type": "application/json", "Access-Token": creds.accessToken },
         body: JSON.stringify({ app_id: creds.appId, to: recipientId, message: { text } }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
-  verifyWebhook(headers: any, body: any, secret: string) { return true; },
+  verifyWebhook(headers, rawBody, ctx) {
+    const appSecret = ctx.credentials?.appSecret;
+    const signature = headers["tiktok-signature"];
+    if (!appSecret || !signature) return false;
+    const expected = createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
+    return safeEqual(signature, expected);
+  },
   parseIncomingMessage(body: any) {
     const event = body?.event;
     const data = body?.data;
@@ -259,6 +316,7 @@ const TikTokAdapter: ChannelAdapter = {
       senderId: data?.from?.open_id || "",
       senderName: data?.from?.name || "کاربر تیک‌تاک",
       text: data.content.text,
+      eventKey: String(data?.message_id || data?.content?.message_id || ""),
     };
   },
 };
@@ -289,12 +347,14 @@ const AirbnbAdapter: ChannelAdapter = {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Airbnb-API-Key": creds.accessToken },
         body: JSON.stringify({ listing_id: creds.listingId, recipient_id: recipientId, message: text }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.text(); return { ok: false, error: e.slice(0, 200) }; }
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e.message }; }
   },
-  verifyWebhook(headers: any, body: any, secret: string) { return true; },
+  // Airbnb does not document webhook signatures; reject until a verifier is implemented.
+  verifyWebhook() { return false; },
   parseIncomingMessage(body: any) {
     const msg = body?.message;
     if (!msg?.text) return null;
@@ -302,6 +362,7 @@ const AirbnbAdapter: ChannelAdapter = {
       senderId: String(msg?.sender?.id || ""),
       senderName: msg?.sender?.first_name || "مهمان Airbnb",
       text: msg.text,
+      eventKey: String(msg?.id || ""),
     };
   },
 };
@@ -321,7 +382,7 @@ const WidgetAdapter: ChannelAdapter = {
   ],
   credentialsFields: [],
   async sendMessage() { return { ok: true }; },
-  verifyWebhook() { return true; },
+  verifyWebhook() { return false; },
   parseIncomingMessage() { return null; },
 };
 
@@ -337,15 +398,15 @@ const VoiceAdapter: ChannelAdapter = {
   setupSteps: [
     "یک شماره مجازی تهیه کنید (مثل Twilio یا سرویس ایرانی)",
     "Account SID و Auth Token را وارد کنید",
-    "شمrome را به webhook زیر فوروارد کنید",
+    "شماره را به webhook زیر فوروارد کنید",
   ],
   credentialsFields: [
     { key: "accountSid", label: "Account SID", type: "text", placeholder: "AC...", required: true },
     { key: "authToken", label: "Auth Token", type: "password", placeholder: "••••", required: true },
-    { key: "fromNumber", label: "شمrome تلفن", type: "text", placeholder: "+98...", required: true },
+    { key: "fromNumber", label: "شماره تلفن", type: "text", placeholder: "+98...", required: true },
   ],
   async sendMessage() { return { ok: true }; },
-  verifyWebhook() { return true; },
+  verifyWebhook() { return false; },
   parseIncomingMessage() { return null; },
 };
 

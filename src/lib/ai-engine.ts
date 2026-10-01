@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { decryptSecret } from "@/lib/crypto";
 import type { ChatMessage, ChatResult, GrowthSignal, KnowledgeChunk, LeadCapture, RagResult, RagSource } from "@/lib/types";
 
 // ────────────────────────────────────────────────────────────
@@ -224,7 +225,7 @@ export async function runReceptionist(opts: {
         provider = {
           id: p.id,
           type: p.type as any,
-          apiKey: p.apiKey,
+          apiKey: decryptSecret(p.apiKey),
           baseUrl: p.baseUrl,
           model: p.model,
         };
@@ -243,7 +244,8 @@ export async function runReceptionist(opts: {
     reply = result.content;
     tokens = result.tokens;
   } catch (e: any) {
-    reply = `متأسفم، در لحظه پاسخگویی با مشکل مواجه شدم. لطفاً دوباره تلاش کنید یا با اپراتور صحبت کنید.\n\n(خطای اتصال به سرویس هوش مصنوعی: ${e.message?.slice(0, 80) || "نامشخص"})`;
+    console.error("[ai-engine] LLM call failed:", e?.message || e);
+    reply = "متأسفم، در لحظه پاسخگویی با مشکل مواجه شدم. لطفاً دوباره تلاش کنید یا با اپراتور صحبت کنید.";
     confidence = 0.2;
   }
 

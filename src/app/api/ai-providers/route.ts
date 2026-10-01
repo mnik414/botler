@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
-import { PROVIDER_TYPES, defaultBaseUrl } from "@/lib/llm-providers";
+import { forbidden, isResponse, requireRole } from "@/lib/auth";
+import { PROVIDER_TYPES, defaultBaseUrl, validateBaseUrl } from "@/lib/llm-providers";
+import { encryptSecret } from "@/lib/crypto";
 
 // GET /api/ai-providers?tenantId=... — list a tenant's configured AI providers + global providers
 export async function GET(req: Request) {
+  const auth = await requireRole(req, ["super_admin", "business_owner"]);
+  if (isResponse(auth)) return auth;
+
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
+  let tenantId = searchParams.get("tenantId");
+  if (auth.role !== "super_admin") {
+    if (tenantId && tenantId !== auth.tenantId) return forbidden();
+    tenantId = auth.tenantId;
+  }
   if (!tenantId) return NextResponse.json({ error: "tenantId required" }, { status: 400 });
 
   const providers = await db.aiProvider.findMany({
@@ -43,13 +51,17 @@ export async function POST(req: Request) {
   if (pt.needsBaseUrl && !baseUrl) {
     return NextResponse.json({ error: "آدرس Base URL الزامی است برای ارائه‌دهنده سفارشی" }, { status: 400 });
   }
+  if (baseUrl) {
+    const check = validateBaseUrl(String(baseUrl));
+    if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
+  }
 
   const provider = await db.aiProvider.create({
     data: {
       tenantId: isGlobal ? null : tenantId,
       name: name.trim(),
       type,
-      apiKey: apiKey || "",
+      apiKey: encryptSecret(apiKey || ""),
       baseUrl: baseUrl || defaultBaseUrl(type),
       model: model || pt.defaultModel,
       isActive: true,

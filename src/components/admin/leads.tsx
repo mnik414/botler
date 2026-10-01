@@ -47,10 +47,17 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export function AdminLeads() {
   const [query, setQuery] = React.useState("");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const { data, loading, error, reload } = useAsync<AdminLead[]>(
-    () => api(`/api/admin/leads?status=${statusFilter}&q=${encodeURIComponent(query)}`),
-    [statusFilter, query]
+    () => api(`/api/admin/leads?status=${statusFilter}&q=${encodeURIComponent(debouncedQuery)}`),
+    [statusFilter, debouncedQuery]
   );
 
   if (loading) {

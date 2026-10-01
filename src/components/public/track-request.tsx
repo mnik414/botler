@@ -2,7 +2,7 @@
 import * as React from "react";
 import { useApp } from "@/store/app-store";
 import { api, type MarketplaceItem } from "@/lib/api-client";
-import { toFa, formatDate, timeAgo, formatToman, CONVO_STATUS, LEAD_STATUS } from "@/lib/format";
+import { toFa, toEn, formatDate, timeAgo, formatToman, CONVO_STATUS, LEAD_STATUS } from "@/lib/format";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,6 +93,7 @@ export function TrackRequestPage() {
   const [tenantsLoading, setTenantsLoading] = React.useState(true);
 
   const [phone, setPhone] = React.useState("");
+  const [token, setToken] = React.useState("");
   const [tenantId, setTenantId] = React.useState<string>(activeTenantId || "");
   const [submitting, setSubmitting] = React.useState(false);
   const [result, setResult] = React.useState<TrackResponse | null>(null);
@@ -124,9 +125,13 @@ export function TrackRequestPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPhone = phone.trim();
+    const cleanPhone = toEn(phone.trim());
     if (!cleanPhone) {
       toast.error("شماره تلفن را وارد کنید");
+      return;
+    }
+    if (!token.trim()) {
+      toast.error("کد پیگیری را وارد کنید");
       return;
     }
     if (!tenantId) {
@@ -137,7 +142,7 @@ export function TrackRequestPage() {
     setResult(null);
     setSearched(false);
     try {
-      const url = `/api/track?phone=${encodeURIComponent(cleanPhone)}&tenantId=${encodeURIComponent(tenantId)}`;
+      const url = `/api/track?phone=${encodeURIComponent(cleanPhone)}&token=${encodeURIComponent(token.trim())}&tenantId=${encodeURIComponent(tenantId)}`;
       const data = await api<TrackResponse>(url);
       setResult(data);
       setSearched(true);
@@ -167,8 +172,8 @@ export function TrackRequestPage() {
           پیگیری درخواست‌های شما
         </h1>
         <p className="text-muted-foreground mt-3 leading-7 text-sm md:text-base">
-          با وارد کردن شماره تلفن همراه خود، می‌توانید تمام گفتگوها، لیدها و رزروهای ثبت‌شده
-          نزد کسب‌وکار موردنظر را پیگیری کنید.
+          شماره تلفن و «کد پیگیری» که پس از گفتگو با منشی به شما نمایش داده شده را وارد کنید
+          تا گفتگوها، درخواست‌ها و رزروهای خود را ببینید.
         </p>
       </div>
 
@@ -192,6 +197,22 @@ export function TrackRequestPage() {
                   autoComplete="tel"
                 />
                 <p className="text-[11px] text-muted-foreground">شماره‌ای که هنگام گفتگو ثبت کرده‌اید را وارد کنید.</p>
+              </div>
+
+              {/* Tracking code */}
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Search className="size-3.5" /> کد پیگیری
+                </Label>
+                <Input
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="مثلاً a1b2c3d4…"
+                  dir="ltr"
+                  className="text-left font-mono"
+                  autoComplete="off"
+                />
+                <p className="text-[11px] text-muted-foreground">کدی که پس از گفتگو در انتهای پنجره چت نمایش داده می‌شود.</p>
               </div>
 
               {/* Tenant */}

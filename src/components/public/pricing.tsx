@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/store/app-store";
 import { api, type Plan } from "@/lib/api-client";
-import { toFa, formatToman, formatCompact } from "@/lib/format";
+import { toFa, formatToman, formatCompact, formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +96,7 @@ export function PricingPage() {
         {usdtRate ? (
           <div className="inline-flex items-center gap-2 mt-4 text-xs text-muted-foreground bg-teal-500/5 border border-teal-500/20 rounded-full px-3 py-1.5">
             <span className="size-1.5 rounded-full bg-teal-500 animate-pulse" />
-            <span>نرخ لحظه‌ای تتر: <strong className="text-teal-600">{toFa(usdtRate.toLocaleString("en-US"))}</strong> تومان</span>
+            <span>نرخ لحظه‌ای تتر: <strong className="text-teal-600">{formatNumber(usdtRate)}</strong> تومان</span>
             <span className="text-[10px] text-muted-foreground/70">({usdtSource})</span>
           </div>
         ) : null}

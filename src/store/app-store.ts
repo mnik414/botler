@@ -55,7 +55,9 @@ interface AppState {
   widgetOpen: boolean;
   setView: (v: View) => void;
   setSession: (s: Session | null) => void;
-  logout: () => void;
+  restoreSession: (s: Session | null) => void;
+  clearSession: () => void;
+  logout: () => Promise<void>;
   setActiveTenant: (id: string | null, slug?: string | null) => void;
   setReferralCode: (c: string | null) => void;
   setDashboardTab: (t: string) => void;
@@ -86,8 +88,14 @@ export const useApp = create<AppState>()(
         set({ session, view });
         updateUrl(view);
       },
-      logout: () => {
-        set({ session: null, view: "landing" });
+      // Set the session without changing the current view (used on boot rehydration)
+      restoreSession: (session) => set({ session }),
+      clearSession: () => set({ session: null, view: "landing" }),
+      logout: async () => {
+        try {
+          await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        } catch {}
+        set({ session: null, view: "landing", activeTenantId: null, activeTenantSlug: null, dashboardTab: "overview", adminTab: "overview" });
         updateUrl("landing");
       },
       setActiveTenant: (activeTenantId, activeTenantSlug = null) =>
@@ -97,6 +105,15 @@ export const useApp = create<AppState>()(
       setAdminTab: (adminTab) => set({ adminTab }),
       setWidgetOpen: (widgetOpen) => set({ widgetOpen }),
     }),
-    { name: "ai-receptionist" }
+    {
+      name: "ai-receptionist",
+      // Never persist the session/role — it is re-fetched from the server on boot.
+      partialize: (state) => ({
+        activeTenantId: state.activeTenantId,
+        activeTenantSlug: state.activeTenantSlug,
+        dashboardTab: state.dashboardTab,
+        adminTab: state.adminTab,
+      }),
+    }
   )
 );

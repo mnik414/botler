@@ -49,7 +49,7 @@ export function BusinessProfilePage() {
         setItem(found);
         // Load FAQ knowledge for the "frequently asked" section
         try {
-          const k = await api<KnowledgeItem[]>(`/api/knowledge?tenantId=${activeTenantId}`);
+          const k = await api<KnowledgeItem[]>(`/api/knowledge?tenantId=${activeTenantId}&public=1`);
           if (!mounted) return;
           setFaqs(k.filter((x) => x.type === "faq").slice(0, 6));
         } catch {}
@@ -90,7 +90,7 @@ export function BusinessProfilePage() {
     );
   }
 
-  const accent = item.accentColor;
+  const accent = /^#[0-9a-fA-F]{3,8}$/.test(item.accentColor || "") ? item.accentColor : "#10b981";
   const bt = getBusinessType(item.businessType);
 
   return (

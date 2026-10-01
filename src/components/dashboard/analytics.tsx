@@ -9,7 +9,7 @@ import {
   Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 import { api, type Analytics } from "@/lib/api-client";
-import { toFa, formatToman, formatNumber, formatCompact, LEAD_STATUS } from "@/lib/format";
+import { toFa, formatToman, formatNumber, formatCompact, formatDay, LEAD_STATUS } from "@/lib/format";
 import { SectionCard, LoadingBlock, ErrorBlock, EmptyState, useAsync, KpiCard } from "./shared";
 
 const PIE_COLORS = ["#10b981", "#06b6d4", "#f59e0b", "#8b5cf6", "#ef4444"];
@@ -90,7 +90,7 @@ export function AnalyticsTab({ tenantId }: { tenantId: string }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={(d) => toFa(new Date(d).getDate())} fontSize={11} tickLine={false} axisLine={false} reversed />
+                <XAxis dataKey="date" tickFormatter={(d) => formatDay(d)} fontSize={11} tickLine={false} axisLine={false} reversed />
                 <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => toFa(v)} width={28} />
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />

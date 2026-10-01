@@ -37,7 +37,7 @@ export function AdminTokens() {
   const k = data.kpis;
   const tokenData = data.tokenUsageByTenant.slice(0, 10);
   const topByTokens = [...data.topTenants]
-    .map((t) => ({ ...t, tokens: tokenData.find((x) => x.name === t.name)?.tokens || t.tokens }))
+        .map((t) => ({ ...t, tokens: tokenData.find((x) => x.id === t.id)?.tokens || t.tokens }))
     .sort((a, b) => b.tokens - a.tokens)
     .slice(0, 10);
   const totalTokens = tokenData.reduce((s, t) => s + t.tokens, 0);

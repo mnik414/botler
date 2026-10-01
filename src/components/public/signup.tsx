@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/store/app-store";
 import { api, type Plan, type Session } from "@/lib/api-client";
 import { BUSINESS_TYPES, getBusinessType } from "@/lib/business-types";
-import { toFa, formatToman, formatCompact } from "@/lib/format";
+import { toFa, toEn, formatToman, formatCompact } from "@/lib/format";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ const INITIAL: FormState = {
 };
 
 export function SignupPage() {
-  const { setView, setSession } = useApp();
+  const { setView, setSession, referralCode } = useApp();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -106,7 +106,8 @@ export function SignupPage() {
           api<Plan[]>("/api/plans"),
           api<{ rate: number; source: string }>("/api/billing/usdt-rate").catch(() => null),
         ]);
-        setPlans(planData);
+        const selfServe = planData.filter((p) => ["starter", "growth", "business"].includes(p.code));
+        setPlans(selfServe.length ? selfServe : planData);
         if (rateData) setUsdtRate(rateData.rate);
       } catch {
         // ignore
@@ -128,13 +129,25 @@ export function SignupPage() {
     if (step === 1) return !!form.businessType;
     if (step === 2) return form.name.trim().length >= 2 && phoneValid(form.phone);
     if (step === 3) return !!form.planCode;
-    if (step === 4) return emailValid(form.ownerEmail) && form.ownerName.trim().length >= 2 && form.ownerPassword.trim().length >= 6;
+    if (step === 4) return emailValid(form.ownerEmail) && form.ownerName.trim().length >= 2 && form.ownerPassword.length >= 8;
     return false;
   };
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const submit = async () => {
     if (!emailValid(form.ownerEmail)) {
       toast.error("ایمیل معتبر وارد کنید");
+      return;
+    }
+    if (form.ownerPassword.length < 8) {
+      toast.error("رمز عبور باید حداقل ۸ کاراکتر باشد");
       return;
     }
     setSubmitting(true);
@@ -153,6 +166,7 @@ export function SignupPage() {
           ownerEmail: form.ownerEmail.toLowerCase(),
           ownerName: form.ownerName,
           ownerPassword: form.ownerPassword,
+          ...(referralCode ? { referralCode } : {}),
         }),
       });
       setDone(true);
@@ -164,13 +178,13 @@ export function SignupPage() {
           body: JSON.stringify({ email: form.ownerEmail.toLowerCase(), password: form.ownerPassword }),
         });
         // small delay for celebration
-        setTimeout(() => setSession(session), 1400);
+        timerRef.current = setTimeout(() => setSession(session), 1400);
       } catch (e: any) {
         toast.error("ورود خودکار ناموفق بود. لطفاً دستی وارد شوید.");
-        setTimeout(() => setView("login"), 1800);
+        timerRef.current = setTimeout(() => setView("login"), 1800);
       }
     } catch (e: any) {
-      toast.error(e.message || "ساخت منشی ناموفق بود");
+      toast.error(e.message || "ساخت منشی ناکام ماند");
     } finally {
       setSubmitting(false);
     }
@@ -558,12 +572,12 @@ export function SignupPage() {
                         dir="ltr"
                         value={form.ownerPassword}
                         onChange={(e) => update("ownerPassword", e.target.value)}
-                        placeholder="حداقل ۶ کاراکتر"
+                        placeholder="حداقل ۸ کاراکتر"
                         className="pr-9 text-left"
                       />
                     </div>
-                    {form.ownerPassword && form.ownerPassword.length < 6 && (
-                      <p className="text-[11px] text-destructive">حداقل ۶ کاراکتر وارد کنید</p>
+                    {form.ownerPassword && form.ownerPassword.length < 8 && (
+                      <p className="text-[11px] text-destructive">حداقل ۸ کاراکتر وارد کنید</p>
                     )}
                   </div>
 
@@ -636,5 +650,5 @@ export function SignupPage() {
 
 // Convert Persian digits to English
 function toEnDigits(s: string): string {
-  return s.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  return toEn(s);
 }

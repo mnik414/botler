@@ -30,18 +30,22 @@ export function ConversationsTab({ tenantId }: { tenantId: string }) {
   const [filter, setFilter] = React.useState<string>("all");
   const [search, setSearch] = React.useState("");
 
-  const convos = (data || []).filter((c) => {
-    if (filter !== "all" && c.status !== filter) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      if (!(`${c.endUserName} ${c.endUserPhone}`.toLowerCase().includes(q))) return false;
-    }
-    return true;
-  });
+  const convos = React.useMemo(
+    () =>
+      (data || []).filter((c) => {
+        if (filter !== "all" && c.status !== filter) return false;
+        if (search.trim()) {
+          const q = search.trim().toLowerCase();
+          if (!`${c.endUserName} ${c.endUserPhone}`.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      }),
+    [data, filter, search]
+  );
 
   React.useEffect(() => {
     if (!selectedId && convos.length > 0) setSelectedId(convos[0].id);
-  }, [data, selectedId, convos]);
+  }, [selectedId, convos]);
 
   if (loading) return <LoadingBlock lines={4} />;
   if (error || !data) return <ErrorBlock message={error || undefined} onRetry={reload} />;

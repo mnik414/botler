@@ -1,0 +1,32 @@
+node_modules
+.next
+out
+build
+.git
+.github
+.kilo
+coverage
+
+# secrets & local databases
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+db
+backups
+
+# local logs & agent artifacts
+*.log
+agent-ctx
+tool-results
+upload
+download
+worklog.md
+.zscripts/dev.pid
+
+# tests are not needed inside the image
+tests

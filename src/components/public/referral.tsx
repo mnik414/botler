@@ -7,17 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Gift, Sparkles, TrendingUp, Users, ArrowLeft, Check, Store, Bot, Share2,
+  Gift, Sparkles, TrendingUp, ArrowLeft, Check, Store, Bot, Share2,
 } from "lucide-react";
 import { toFa, formatToman } from "@/lib/format";
 import { toast } from "sonner";
 
 interface ReferralInfo {
   code: string;
-  clicks: number;
-  signups: number;
-  credits: number;
-  commission: number;
+  rewardCredits: number;
   tenant: { id: string; name: string; slug: string; businessType: string; accentColor: string; description: string };
 }
 
@@ -34,15 +31,9 @@ export function ReferralPage() {
     let mounted = true;
     (async () => {
       try {
-        // Record the click
-        const lookup = await api<ReferralInfo>(`/api/referral/by-code/${referralCode}`);
+        const lookup = await api<ReferralInfo>(`/api/referral/by-code/${encodeURIComponent(referralCode)}`);
         if (!mounted) return;
         setInfo(lookup);
-        // increment click on the tenant's referral
-        await api(`/api/referral/${lookup.tenant.id}`, {
-          method: "POST",
-          body: JSON.stringify({ event: "click" }),
-        }).catch(() => {});
       } catch {
         if (mounted) setInfo(null);
       } finally {
@@ -94,7 +85,7 @@ export function ReferralPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-7">
             <Button size="lg" variant="secondary" className="gap-2 shadow-lg" onClick={() => setView("signup")}>
-              <Sparkles className="size-4" /> شاخت منشی رایگان
+              <Sparkles className="size-4" /> ساخت منشی رایگان
             </Button>
             <Button size="lg" variant="outline" className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white gap-2" onClick={() => { setActiveTenant(info.tenant.id, info.tenant.slug); setView("business"); }}>
               <Store className="size-4" /> دیدن کسب‌وکار {info.tenant.name}
@@ -121,30 +112,16 @@ export function ReferralPage() {
           ))}
         </div>
 
-        {/* Referrer stats */}
+        {/* Reward */}
         <Card className="p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="size-4 text-primary" />
-            <h3 className="font-bold">آمار معرفی‌کننده: {info.tenant.name}</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <Gift className="size-4 text-primary" />
+            <h3 className="font-bold">هدیه خوش‌آمدگویی شما</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-extrabold text-primary">{toFa(info.clicks)}</div>
-              <div className="text-xs text-muted-foreground mt-1">کلیک روی لینک</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-extrabold text-primary">{toFa(info.signups)}</div>
-              <div className="text-xs text-muted-foreground mt-1">ثبت‌نام موفق</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-extrabold text-emerald-600">{formatToman(info.credits)}</div>
-              <div className="text-xs text-muted-foreground mt-1">اعتبار کسب‌شده</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-extrabold text-amber-600">{formatToman(info.commission)}</div>
-              <div className="text-xs text-muted-foreground mt-1">کمیسیون دریافتی</div>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground leading-6">
+            با ثبت‌نام از طریق دعوت <span className="font-semibold">{info.tenant.name}</span>، مبلغ{" "}
+            <span className="font-bold text-emerald-600">{formatToman(info.rewardCredits)}</span> اعتبار رایگان دریافت می‌کنید.
+          </p>
         </Card>
 
         {/* How it works */}

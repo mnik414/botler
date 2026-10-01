@@ -1,7 +1,7 @@
 FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
-COPY package.json ./
+COPY package.json bun.lock ./
 RUN npm install -g bun && bun install
 
 FROM node:22-alpine AS builder
@@ -26,10 +26,13 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Copy all node_modules so CLI tools (prisma, tsx, bcryptjs, esbuild) work
 COPY --from=builder /app/node_modules ./node_modules
 
+RUN chmod +x ./docker-entrypoint.sh
+
 EXPOSE 3000
 ENV PORT=3000
-CMD ["node", "server.js"]
+CMD ["sh", "docker-entrypoint.sh"]

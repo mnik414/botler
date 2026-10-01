@@ -155,11 +155,11 @@ export async function GET() {
       fetchedAt: new Date().toISOString(),
     });
   } catch (e: any) {
+    console.error("[billing/usdt-rate] fallback", e);
     // Ultimate fallback
     return NextResponse.json({
       rate: 160000,
       source: "fallback (error)",
-      error: e.message,
       fetchedAt: new Date().toISOString(),
     });
   }

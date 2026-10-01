@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isResponse, requireRole } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireRole(req, ["super_admin"]);
+  if (isResponse(auth)) return auth;
+
   const [tenants, plans, users, conversations, leads, tokenLogs, invoices, internalLeads] = await Promise.all([
     db.tenant.findMany({ include: { plan: true, subscription: true } }),
     db.plan.findMany(),
@@ -60,6 +64,6 @@ export async function GET() {
     plans: byPlan,
     topTenants,
     revenueTrend: last30,
-    tokenUsageByTenant: topTenants.map((t) => ({ name: t.name, tokens: t.tokens })),
+    tokenUsageByTenant: topTenants.map((t) => ({ id: t.id, name: t.name, tokens: t.tokens })),
   });
 }

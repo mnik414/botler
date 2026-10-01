@@ -109,7 +109,12 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
                 {n.label}
               </Button>
             ))}
-            <Button variant="ghost" className="justify-start" onClick={() => { setView("login"); setMobileOpen(false); }}>ورود</Button>
+            {!session && (
+              <Button variant="ghost" className="justify-start" onClick={() => { setView("login"); setMobileOpen(false); }}>ورود</Button>
+            )}
+            {session && (
+              <Button variant="ghost" className="justify-start" onClick={() => { setView(session.role === "super_admin" ? "admin" : session.role === "operator" ? "operator" : "dashboard"); setMobileOpen(false); }}>ورود به پنل</Button>
+            )}
           </div>
         )}
       </header>

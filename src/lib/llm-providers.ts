@@ -37,6 +37,53 @@ export function defaultBaseUrl(type: ProviderType): string {
   return DEFAULT_BASE_URLS[type] || "";
 }
 
+const PRIVATE_HOST_RE =
+  /^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|\[::1\])/i;
+
+// SSRF guard for user-supplied provider base URLs.
+export function validateBaseUrl(raw: string): { ok: true; url: string } | { ok: false; error: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return { ok: false, error: "آدرس Base URL نامعتبر است" };
+  }
+  const allowPrivate = process.env.ALLOW_PRIVATE_AI_BASE_URL === "1";
+  if (!allowPrivate) {
+    if (parsed.protocol !== "https:") return { ok: false, error: "Base URL باید با https شروع شود" };
+    if (PRIVATE_HOST_RE.test(parsed.hostname)) return { ok: false, error: "آدرس‌های داخلی/خصوصی مجاز نیستند" };
+  } else if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { ok: false, error: "پروتکل Base URL نامعتبر است" };
+  }
+  return { ok: true, url: raw.replace(/\/$/, "") };
+}
+
+const LLM_TIMEOUT_MS = 45_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = LLM_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 // Main entry: dispatch to the right provider
 export async function callLLM(
   provider: AiProviderConfig | null,
@@ -80,10 +127,15 @@ async function callZai(messages: LLMMessage[], opts: { temperature?: number }): 
     role: m.role === "system" ? ("assistant" as const) : (m.role as "user" | "assistant"),
     content: m.content,
   }));
-  const completion = await zai.chat.completions.create({
-    messages: mapped as any,
-    thinking: { type: "disabled" },
-  });
+  const completion = await withTimeout(
+    zai.chat.completions.create({
+      messages: mapped as any,
+      thinking: { type: "disabled" },
+      temperature: opts.temperature ?? 0.4,
+    } as any),
+    LLM_TIMEOUT_MS,
+    "Z.ai completion"
+  );
   const content = completion.choices[0]?.message?.content?.trim() || "";
   return { content, tokens: Math.ceil(content.length / 4) };
 }
@@ -104,11 +156,7 @@ async function callOpenAICompatible(
     temperature: opts.temperature ?? 0.4,
   });
 
-  console.log(`[openai-compat] POST ${url}`);
-  console.log(`[openai-compat] Request body:`, body);
-  console.log(`[openai-compat] Authorization: Bearer ${provider.apiKey ? provider.apiKey.slice(0, 12) + "..." : "(EMPTY)"}`);
-
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -117,24 +165,17 @@ async function callOpenAICompatible(
     body,
   });
 
-  console.log(`[openai-compat] Response status: ${res.status} ${res.statusText}`);
-
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    console.error(`[openai-compat] Error response body:`, txt);
-    // Provide clearer error for OpenRouter model ID issues
-    let errorMsg = `OpenAI-compatible API error ${res.status}: ${txt.slice(0, 500)}`;
+    let errorMsg = `OpenAI-compatible API error ${res.status}: ${txt.slice(0, 300)}`;
     if (res.status === 400 && txt.includes("not a valid model")) {
-      errorMsg = `شناسه مدل "${provider.model}" برای این ارائه‌دهنده معتبر نیست. مدل‌های معتبر OpenRouter: deepseek/deepseek-chat, openai/gpt-4o, anthropic/claude-3-5-sonnet, google/gemini-1.5-flash و ...`;
+      errorMsg = `شناسه مدل "${provider.model}" برای این ارائه‌دهنده معتبر نیست.`;
     }
     throw new Error(errorMsg);
   }
   const data = await res.json();
-  console.log(`[openai-compat] Response body:`, JSON.stringify(data).slice(0, 1000));
   const content = data?.choices?.[0]?.message?.content?.trim() || "";
   const tokens = data?.usage?.total_tokens ?? Math.ceil(content.length / 4);
-  console.log(`[openai-compat] Extracted content: "${content.slice(0, 100)}"`);
-  console.log(`[openai-compat] Extracted tokens: ${tokens}`);
   return { content, tokens };
 }
 
@@ -159,11 +200,7 @@ async function callAnthropic(
     messages: convo.map((m) => ({ role: m.role, content: m.content })),
   });
 
-  console.log(`[anthropic] POST ${url}`);
-  console.log(`[anthropic] Request body:`, body);
-  console.log(`[anthropic] API Key prefix: ${provider.apiKey ? provider.apiKey.slice(0, 12) + "..." : "(EMPTY)"}`);
-
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -173,19 +210,15 @@ async function callAnthropic(
     body,
   });
 
-  console.log(`[anthropic] Response status: ${res.status} ${res.statusText}`);
-
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    console.error(`[anthropic] Error response body:`, txt);
-    throw new Error(`Anthropic API error ${res.status}: ${txt.slice(0, 500)}`);
+    throw new Error(`Anthropic API error ${res.status}: ${txt.slice(0, 300)}`);
   }
   const data = await res.json();
-  console.log(`[anthropic] Response body:`, JSON.stringify(data).slice(0, 1000));
   const content = data?.content?.[0]?.text?.trim() || "";
-  const tokens = data?.usage?.output_tokens ?? Math.ceil(content.length / 4);
-  console.log(`[anthropic] Extracted content: "${content.slice(0, 100)}"`);
-  console.log(`[anthropic] Extracted tokens: ${tokens}`);
+  const inputTokens = data?.usage?.input_tokens ?? 0;
+  const outputTokens = data?.usage?.output_tokens ?? Math.ceil(content.length / 4);
+  const tokens = inputTokens + outputTokens;
   return { content, tokens };
 }
 
@@ -214,28 +247,19 @@ async function callGemini(
   }
   const bodyStr = JSON.stringify(body);
 
-  console.log(`[gemini] POST ${url}`);
-  console.log(`[gemini] Request body:`, bodyStr);
-
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: bodyStr,
   });
 
-  console.log(`[gemini] Response status: ${res.status} ${res.statusText}`);
-
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    console.error(`[gemini] Error response body:`, txt);
-    throw new Error(`Gemini API error ${res.status}: ${txt.slice(0, 500)}`);
+    throw new Error(`Gemini API error ${res.status}: ${txt.slice(0, 300)}`);
   }
   const data = await res.json();
-  console.log(`[gemini] Response body:`, JSON.stringify(data).slice(0, 1000));
   const content = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
   const tokens = data?.usageMetadata?.totalTokenCount ?? Math.ceil(content.length / 4);
-  console.log(`[gemini] Extracted content: "${content.slice(0, 100)}"`);
-  console.log(`[gemini] Extracted tokens: ${tokens}`);
   return { content, tokens };
 }
 
@@ -244,38 +268,17 @@ async function callGemini(
 export async function testProvider(provider: AiProviderConfig): Promise<{ ok: boolean; reply: string; error?: string }> {
   const LOG_PREFIX = `[testProvider:${provider.type}/${provider.model}]`;
   console.log(`${LOG_PREFIX} ===== START TEST =====`);
-  console.log(`${LOG_PREFIX} Provider config:`, {
-    type: provider.type,
-    model: provider.model,
-    baseUrl: provider.baseUrl || defaultBaseUrl(provider.type) || "(none)",
-    apiKeyPrefix: provider.apiKey ? provider.apiKey.slice(0, 12) + "..." : "(EMPTY - no API key set)",
-  });
-
   try {
     const messages: LLMMessage[] = [
       { role: "system", content: "You are a test assistant. Reply with exactly: OK" },
       { role: "user", content: "ping" },
     ];
 
-    console.log(`${LOG_PREFIX} Sending messages:`, JSON.stringify(messages));
-
     const result = await callLLM(provider, messages, { temperature: 0 });
-
-    console.log(`${LOG_PREFIX} Test SUCCEEDED`);
-    console.log(`${LOG_PREFIX}   Full reply: "${result.content}"`);
-    console.log(`${LOG_PREFIX}   Reply length: ${result.content.length} chars`);
-    console.log(`${LOG_PREFIX}   Tokens used: ${result.tokens}`);
-    console.log(`${LOG_PREFIX} ===== END TEST (SUCCESS) =====`);
-
     return { ok: !!result.content, reply: result.content.slice(0, 200) };
   } catch (e: any) {
     const errorMsg = e.message || String(e);
-    console.error(`${LOG_PREFIX} Test FAILED`);
-    console.error(`${LOG_PREFIX}   Error message: "${errorMsg}"`);
-    if (e.stack) {
-      console.error(`${LOG_PREFIX}   Stack trace:\n${e.stack}`);
-    }
-    console.error(`${LOG_PREFIX} ===== END TEST (FAILURE) =====`);
+    console.error(`${LOG_PREFIX} Test FAILED: ${errorMsg}`);
     return { ok: false, reply: "", error: errorMsg };
   }
 }

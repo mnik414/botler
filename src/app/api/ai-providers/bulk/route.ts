@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { testProvider, PROVIDER_TYPES, defaultBaseUrl } from "@/lib/llm-providers";
+import { encryptSecret, decryptSecret } from "@/lib/crypto";
 
 // Bulk operations across multiple tenants — SUPER ADMIN ONLY
 //
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
         if (existing) {
           // Update the existing one instead of duplicating
           const updated = await db.aiProvider.update({ where: { id: existing.id }, data: {
-            apiKey: apiKey || existing.apiKey,
+            apiKey: apiKey ? encryptSecret(apiKey) : existing.apiKey,
             baseUrl: baseUrl || existing.baseUrl,
             model: model || existing.model,
           }});
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
           const created = await db.aiProvider.create({
             data: {
               tenantId, name: String(name).trim(), type,
-              apiKey: apiKey || "", baseUrl: baseUrl || defaultBaseUrl(type),
+              apiKey: encryptSecret(apiKey || ""), baseUrl: baseUrl || defaultBaseUrl(type),
               model: model || pt.defaultModel, isActive: true,
               isGlobal: isGlobal || false,
             },
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
         const p = await db.aiProvider.findFirst({ where: { id: pid, tenantId } });
         if (!p) throw new Error("یافت نشد");
         console.log(`[Bulk Test] Testing provider: tenantId=${tenantId}, providerId=${p.id}, type=${p.type}, model=${p.model}`);
-        const result = await testProvider({ id: p.id, type: p.type as any, apiKey: p.apiKey, baseUrl: p.baseUrl, model: p.model });
+        const result = await testProvider({ id: p.id, type: p.type as any, apiKey: decryptSecret(p.apiKey), baseUrl: p.baseUrl, model: p.model });
         console.log(`[Bulk Test] Result: ok=${result.ok}, reply=${result.reply?.slice(0, 50) || "(empty)"}, error=${result.error || "(none)"}`);
         await db.aiProvider.update({ where: { id: p.id }, data: { lastTestedAt: new Date(), lastTestOk: result.ok } });
         if (!result.ok) throw new Error(result.error || "تست ناموفق");

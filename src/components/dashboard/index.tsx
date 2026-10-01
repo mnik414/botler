@@ -84,18 +84,21 @@ export function DashboardView() {
   const [changingPassword, setChangingPassword] = React.useState(false);
 
   if (!session || !session.tenant) {
+    const isAdmin = session?.role === "super_admin";
     return (
       <div className="min-h-screen grid place-items-center bg-background p-4">
         <div className="max-w-md w-full text-center space-y-4">
           <div className="grid place-items-center size-14 rounded-2xl bg-primary text-primary-foreground mx-auto shadow-lg">
             <Sparkles className="size-7" />
           </div>
-          <h1 className="text-xl font-bold">ورود به پنل مدیریت</h1>
+          <h1 className="text-xl font-bold">{isAdmin ? "این بخش مخصوص کسب‌وکارهاست" : "ورود به پنل مدیریت"}</h1>
           <p className="text-sm text-muted-foreground">
-            برای دسترسی به داشبورد مدیریت کسب‌وکار، ابتدا وارد حساب کاربری خود شوید.
+            {isAdmin
+              ? "شما به‌عنوان مدیر پلتفرم وارد شده‌اید. برای مدیریت کسب‌وکارها به پنل مدیریت بروید."
+              : "برای دسترسی به داشبورد مدیریت کسب‌وکار، ابتدا وارد حساب کاربری خود شوید."}
           </p>
-          <Button size="lg" onClick={() => setView("login")} className="gap-2">
-            <LogOut className="size-4" /> ورود به حساب
+          <Button size="lg" onClick={() => setView(isAdmin ? "admin" : "login")} className="gap-2">
+            <LogOut className="size-4" /> {isAdmin ? "پنل مدیریت" : "ورود به حساب"}
           </Button>
         </div>
       </div>
@@ -295,8 +298,8 @@ export function DashboardView() {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              if (!currentPassword || newPassword.length < 6) {
-                toast.error("رمز عبور جدید باید حداقل ۶ کاراکتر باشد");
+              if (!currentPassword || newPassword.length < 8) {
+                toast.error("رمز عبور جدید باید حداقل ۸ کاراکتر باشد");
                 return;
               }
               setChangingPassword(true);
@@ -338,7 +341,7 @@ export function DashboardView() {
                 dir="ltr"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="حداقل ۶ کاراکتر"
+                placeholder="حداقل ۸ کاراکتر"
                 className="text-left"
                 required
                 minLength={6}

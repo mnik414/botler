@@ -60,8 +60,8 @@ export function OperatorsTab({ tenantId }: { tenantId: string }) {
       toast.error("نام، ایمیل و گذرواژه الزامی است");
       return;
     }
-    if (password.length < 4) {
-      toast.error("گذرواژه باید حداقل ۴ کاراکتر باشد");
+    if (password.length < 8) {
+      toast.error("گذرواژه باید حداقل ۸ کاراکتر باشد");
       return;
     }
     setSubmitting(true);
@@ -161,10 +161,12 @@ export function OperatorsTab({ tenantId }: { tenantId: string }) {
                 <div className="space-y-1.5">
                   <Label>گذرواژه *</Label>
                   <Input
+                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="حداقل ۴ کاراکتر"
+                    placeholder="حداقل ۸ کاراکتر"
                     dir="ltr"
+                    autoComplete="new-password"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">

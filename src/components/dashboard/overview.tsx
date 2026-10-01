@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { api, type Analytics, type Conversation, type Lead } from "@/lib/api-client";
 import { useApp } from "@/store/app-store";
-import { toFa, formatToman, formatNumber, formatCompact, timeAgo, CONVO_STATUS, LEAD_STATUS } from "@/lib/format";
+import { toFa, formatToman, formatNumber, formatCompact, formatDay, timeAgo, CONVO_STATUS, LEAD_STATUS } from "@/lib/format";
 import { KpiCard, SectionCard, LoadingBlock, ErrorBlock, EmptyState, useAsync, pct } from "./shared";
 
 const CHART_COLORS = {
@@ -135,7 +135,7 @@ export function OverviewTab({ tenantId }: { tenantId: string }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={(d) => toFa(new Date(d).getDate())} fontSize={11} tickLine={false} axisLine={false} reversed />
+                <XAxis dataKey="date" tickFormatter={(d) => formatDay(d)} fontSize={11} tickLine={false} axisLine={false} reversed />
                 <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => toFa(v)} width={28} />
                 <Tooltip content={<TrendTooltip />} />
                 <Area type="monotone" dataKey="conversations" name="گفتگو" stroke={CHART_COLORS.emerald} strokeWidth={2} fill="url(#gConv)" />

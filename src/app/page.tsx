@@ -36,17 +36,20 @@ function parseViewFromUrl(): { view: string; tenantSlug?: string } {
 }
 
 export default function Home() {
-  const { view, session, activeTenantId, setView, setActiveTenant, setReferralCode } = useApp();
+  const { view, session, activeTenantId, setView, restoreSession, setActiveTenant, setReferralCode } = useApp();
   const [booting, setBooting] = useState(true);
 
-  // Initial boot: parse URL and set view
+  // Initial boot: parse URL, resolve embed tenant, rehydrate session from server
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const embedTenantId = params.get("embed") === "1" ? params.get("tenantId") : null;
+    if (embedTenantId) setActiveTenant(embedTenantId, null);
+
     const { view: initialView, tenantSlug } = parseViewFromUrl();
     if (initialView === "referral") {
-      const params = new URLSearchParams(window.location.search);
       const ref = params.get("ref");
       if (ref) setReferralCode(ref.toUpperCase());
-      setView("referral");
+      if (!embedTenantId) setView("referral");
     } else if (initialView === "business" && tenantSlug) {
       (async () => {
         try {
@@ -58,10 +61,28 @@ export default function Home() {
           }
         } catch {}
       })();
-    } else if (initialView !== "landing" && initialView !== view) {
+    } else if (!embedTenantId && initialView !== "landing") {
       setView(initialView as any);
     }
-    setBooting(false);
+
+    // Rehydrate the session from the httpOnly cookie; the store never persists it.
+    (async () => {
+      try {
+        const me = await api<any>("/api/auth/me");
+        restoreSession(me);
+      } catch {
+        restoreSession(null);
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, []);
+
+  // Global 401 handling — drop the local session when the token expires
+  useEffect(() => {
+    const onUnauthorized = () => useApp.getState().clearSession();
+    window.addEventListener("auth:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
   }, []);
 
   // Handle popstate (browser back/forward)
@@ -75,17 +96,18 @@ export default function Home() {
             const found = items.find((m) => m.slug === tenantSlug);
             if (found) {
               setActiveTenant(found.id, found.slug);
-              setView("business");
+              useApp.setState({ view: "business" });
             }
           } catch {}
         })();
-      } else if (newView !== view) {
-        setView(newView as any);
+      } else {
+        // Avoid pushing another history entry while the browser is navigating back
+        useApp.setState({ view: newView as any });
       }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [view]);
+  }, []);
 
   if (booting) {
     return (
@@ -102,11 +124,12 @@ export default function Home() {
 
   // Embedded widget mode: render ONLY the widget full-viewport
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const isEmbedded = params?.get("embed") === "1" && activeTenantId;
-  if (isEmbedded) {
+  const embedTenantId = params?.get("embed") === "1" ? params?.get("tenantId") : null;
+  const widgetTenantId = embedTenantId || activeTenantId;
+  if (embedTenantId && widgetTenantId) {
     return (
       <div className="fixed inset-0">
-        <FloatingWidget tenantId={activeTenantId} variant="panel" initialOpen accentColor={params?.get("accent") || undefined} />
+        <FloatingWidget tenantId={widgetTenantId} variant="panel" initialOpen accentColor={params?.get("accent") || undefined} />
       </div>
     );
   }
@@ -120,7 +143,7 @@ export default function Home() {
         <DashboardView />
       ) : view === "admin" && session?.role === "super_admin" ? (
         <AdminView />
-      ) : view === "operator" && session ? (
+      ) : view === "operator" && session && (session.role === "operator" || session.role === "business_owner") ? (
         <OperatorView />
       ) : isPublic ? (
         <PublicShell>

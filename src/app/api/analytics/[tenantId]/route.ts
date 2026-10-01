@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { analyzeConversations } from "@/lib/ai-engine";
+import { isResponse, requireTenant } from "@/lib/auth";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
-  const { tenantId } = await params;
+export async function GET(req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
+  const { tenantId: requested } = await params;
+  const auth = await requireTenant(req, requested);
+  if (isResponse(auth)) return auth;
+  const tenantId = auth.tenantId;
 
-  const [tenant, conversations, leads, bookings, subscription, tokenLogs, internalLeads, convos] = await Promise.all([
+  const [tenant, conversations, leads, _bookings, subscription, tokenLogs, internalLeads] = await Promise.all([
     db.tenant.findUnique({ where: { id: tenantId }, include: { plan: true } }),
     db.conversation.findMany({ where: { tenantId }, select: { id: true, status: true, leadCaptured: true, satisfaction: true, confidence: true, createdAt: true, channel: true } }),
     db.lead.findMany({ where: { tenantId }, select: { id: true, status: true, value: true, createdAt: true } }),
@@ -13,8 +17,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ tenantI
     db.subscription.findUnique({ where: { tenantId }, include: { plan: true } }),
     db.tokenUsageLog.findMany({ where: { tenantId }, select: { tokens: true, createdAt: true } }),
     db.internalLead.findMany({ where: { tenantId }, select: { id: true, score: true, status: true } }),
-    (async () => analyzeConversations(tenantId))(),
   ]);
+
+  const analysis = await analyzeConversations(tenantId);
 
   const now = new Date();
   const last14 = Array.from({ length: 14 }, (_, i) => {
@@ -66,6 +71,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ tenantI
       status: s,
       count: leads.filter((l) => l.status === s).length,
     })),
-    analysis: await convos,
+    analysis,
   });
 }

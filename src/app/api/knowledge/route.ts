@@ -1,36 +1,76 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isResponse, requireTenant } from "@/lib/auth";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+
+const ALLOWED_TYPES = ["faq", "text", "website", "csv", "pdf", "docx", "excel"];
+
+function safeChunks(json: string): any[] {
+  try {
+    const parsed = JSON.parse(json || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
-  if (!tenantId) return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+  const requestedTenant = searchParams.get("tenantId");
+  const wantsPublic = searchParams.get("public") === "1";
+
+  const auth = await requireTenant(req, requestedTenant);
+  if (isResponse(auth)) {
+    // Public FAQ projection used by the business profile page.
+    if (wantsPublic && requestedTenant) {
+      const limit = rateLimit(`knowledge-public:${clientIp(req)}`, 60, 60_000);
+      if (!limit.ok) return tooManyRequests(limit.retryAfterSec);
+      const faqs = await db.knowledgeItem.findMany({
+        where: { tenantId: requestedTenant, type: "faq", status: "ready" },
+        select: { id: true, title: true, question: true, content: true, type: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+      return NextResponse.json(faqs);
+    }
+    return auth;
+  }
 
   const items = await db.knowledgeItem.findMany({
-    where: { tenantId },
+    where: { tenantId: auth.tenantId },
     orderBy: { createdAt: "desc" },
+    take: 500,
   });
-  return NextResponse.json(
-    items.map((i) => ({ ...i, chunks: JSON.parse(i.chunksJson || "[]") }))
-  );
+  return NextResponse.json(items.map((i) => ({ ...i, chunks: safeChunks(i.chunksJson) })));
 }
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { tenantId, type, title, content, question, url } = body;
-  if (!tenantId || !title || !content) {
-    return NextResponse.json({ error: "tenantId, title, content required" }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "بدنه درخواست نامعتبر است" }, { status: 400 });
   }
+
+  const auth = await requireTenant(req, body.tenantId);
+  if (isResponse(auth)) return auth;
+
+  const { type, title, content, question, url } = body;
+  if (typeof title !== "string" || typeof content !== "string" || !title.trim() || !content.trim()) {
+    return NextResponse.json({ error: "عنوان و محتوا الزامی است" }, { status: 400 });
+  }
+  if (content.length > 200_000) {
+    return NextResponse.json({ error: "محتوا بیش از حد طولانی است (حداکثر ۲۰۰ هزار کاراکتر)" }, { status: 400 });
+  }
+  const safeType = typeof type === "string" && ALLOWED_TYPES.includes(type) ? type : "text";
   const { buildChunks } = await import("@/lib/ai-engine");
-  const chunks = buildChunks(content, type === "faq" ? question : undefined);
+  const chunks = buildChunks(content, safeType === "faq" && typeof question === "string" ? question : undefined);
   const item = await db.knowledgeItem.create({
     data: {
-      tenantId,
-      type: type || "text",
-      title,
+      tenantId: auth.tenantId,
+      type: safeType,
+      title: String(title).slice(0, 300),
       content,
-      question: question || "",
-      url: url || "",
+      question: typeof question === "string" ? question.slice(0, 1000) : "",
+      url: typeof url === "string" ? url.slice(0, 2000) : "",
       chunksJson: JSON.stringify(chunks),
       status: "ready",
       size: content.length,

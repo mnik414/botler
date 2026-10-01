@@ -81,10 +81,11 @@ model User {
   id            String   @id @default(cuid())
   email         String   @unique
   name          String
-  passwordHash  String   @default("") // demo only — plaintext-ish
+  passwordHash  String   @default("")
   role          String   @default("business_owner") // super_admin | business_owner | operator | end_user
   tenantId      String?
   avatarUrl     String   @default("")
+  tokenVersion  Int      @default(0) // bump to invalidate all existing JWTs
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -186,6 +187,8 @@ model Conversation {
   messageCount  Int      @default(0)
   leadCaptured  Boolean  @default(false)
   operatorId    String?
+  senderKey     String?  @unique // tenant:channel:senderId — atomic upsert for channel conversations
+  trackToken    String?  @unique // secret token shown to end user for tracking
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -197,6 +200,7 @@ model Conversation {
   @@index([tenantId])
   @@index([status])
   @@index([createdAt])
+  @@index([tenantId, updatedAt])
 }
 
 model Message {
@@ -213,6 +217,7 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
+  @@index([conversationId, createdAt])
   @@index([role])
 }
 
@@ -238,6 +243,7 @@ model Lead {
   conversation   Conversation? @relation(fields: [conversationId], references: [id])
   bookings       Booking[]
 
+  @@unique([tenantId, phone])
   @@index([tenantId])
   @@index([status])
 }
@@ -309,6 +315,22 @@ model TokenUsageLog {
 
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([tenantId, createdAt])
+}
+
+// ────────────────────────────────────────────────────────────
+// Webhook idempotency — dedupe platform retries
+// ────────────────────────────────────────────────────────────
+model ProcessedEvent {
+  id        String   @id @default(cuid())
+  platform  String
+  eventKey  String
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@unique([platform, eventKey])
   @@index([tenantId])
   @@index([createdAt])
 }

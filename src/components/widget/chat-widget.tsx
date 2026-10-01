@@ -29,8 +29,10 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [tenant, setTenant] = useState<any>(null);
+  const [agentName, setAgentName] = useState<string | null>(null);
   const [lastMeta, setLastMeta] = useState<ChatResponse | null>(null);
   const [listening, setListening] = useState(false);
+  const [trackToken, setTrackToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -45,6 +47,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
         setTenant(t);
         const agent = await api<any>(`/api/agent/${tenantId}`);
         if (!mounted) return;
+        setAgentName(agent.name || null);
         setMessages([
           {
             role: "assistant",
@@ -54,7 +57,11 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
         ]);
       } catch {}
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      recognitionRef.current?.stop?.();
+      recognitionRef.current = null;
+    };
   }, [tenantId]);
 
   useEffect(() => {
@@ -74,6 +81,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
         body: JSON.stringify({ tenantId, conversationId, message: text, history: messages }),
       });
       setConversationId(res.conversationId);
+      if ((res as any).trackToken) setTrackToken((res as any).trackToken);
       setMessages((m) => [
         ...m,
         { role: "assistant", content: res.reply, confidence: res.confidence, sources: res.sources, createdAt: new Date().toISOString() },
@@ -93,16 +101,18 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
     const f = e.target.files?.[0];
     if (!f) return;
     e.target.value = "";
-    if (f.size > 5 * 1024 * 1024) { toast.error("حداکثر حجم فایل ۵ مگابایت"); return; }
-    // For text-like files, read & send content; for others, acknowledge the attachment
+    if (f.size > 2 * 1024 * 1024) { toast.error("حداکثر حجم فایل ۲ مگابایت"); return; }
     const name = f.name.toLowerCase();
     if (name.endsWith(".txt") || name.endsWith(".csv") || name.endsWith(".json")) {
-      const text = await f.text();
-      setInput(prev => prev + (prev ? "\n" : "") + text.slice(0, 2000));
-      toast.success(`محتوای ${f.name} به پیام افزوده شد`);
+      try {
+        const text = await f.text();
+        setInput(prev => prev + (prev ? "\n" : "") + text.slice(0, 2000));
+        toast.success(`محتوای ${f.name} به پیام افزوده شد`);
+      } catch {
+        toast.error("خواندن فایل ممکن نشد");
+      }
     } else {
-      setMessages(m => [...m, { role: "user", content: `📎 فایل پیوست شد: ${f.name}`, createdAt: new Date().toISOString() }]);
-      toast.success(`فایل ${f.name} پیوست شد`);
+      toast.error("در حال حاضر فقط فایل‌های متنی (txt/csv/json) پشتیبانی می‌شوند");
     }
   };
 
@@ -132,7 +142,8 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
     toast.info("در حال ضبط… صحبت کنید");
   };
 
-  const accent = accentColor || tenant?.accentColor || "#10b981";
+  const rawAccent = accentColor || tenant?.accentColor || "#10b981";
+  const accent = /^#[0-9a-fA-F]{3,8}$/.test(rawAccent) ? rawAccent : "#10b981";
 
   const panel = (
     <div className="flex flex-col h-full bg-card rounded-2xl overflow-hidden shadow-2xl border" style={{ ["--w-accent" as any]: accent }}>
@@ -146,7 +157,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
             <span className="absolute -bottom-0.5 -left-0.5 size-3.5 rounded-full bg-emerald-400 border-2 border-white pulse-dot" />
           </div>
           <div>
-            <div className="font-bold text-sm leading-tight">{tenant?.agent?.name || `منشی ${tenant?.name || ""}`}</div>
+            <div className="font-bold text-sm leading-tight">{agentName || `منشی ${tenant?.name || ""}`}</div>
             <div className="text-[11px] text-white/85 flex items-center gap-1"><Wifi className="size-3" /> آنلاین · پاسخ خودکار</div>
           </div>
         </div>
@@ -182,7 +193,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
                   )}
                   {m.sources && m.sources.slice(0, 2).map((s, j) => (
                     <Badge key={j} variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary">
-                      <FileText className="size-2.5" /> {s.title.slice(0, 22)}
+                      <FileText className="size-2.5" /> {(s.title || "منبع").slice(0, 22)}
                     </Badge>
                   ))}
                 </div>
@@ -238,7 +249,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
       {/* Input */}
       <div className="border-t p-2.5 bg-card">
         <div className="flex items-end gap-2">
-          <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.csv,.json,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" onChange={onFilePick} />
+          <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.csv,.json" onChange={onFilePick} />
           <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="پیوست فایل" onClick={() => fileInputRef.current?.click()}>
             <Paperclip className="size-4" />
           </button>
@@ -261,9 +272,24 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Bot className="size-3" /> قدرت‌گرفته از هوش مصنوعی
           </span>
-          {lastMeta?.leadCreated && (
+          {trackToken ? (
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(trackToken);
+                  toast.success("کد پیگیری کپی شد");
+                } catch {
+                  toast.error("کپی ممکن نشد");
+                }
+              }}
+              className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+              title="برای پیگیری درخواست، این کد و شماره تلفن خود را در صفحه پیگیری وارد کنید"
+            >
+              کد پیگیری: <span className="font-mono" dir="ltr">{trackToken.slice(0, 8)}</span>
+            </button>
+          ) : lastMeta?.leadCreated ? (
             <span className="text-[10px] text-emerald-600 flex items-center gap-1"><UserPlus className="size-3" /> لید ثبت شد</span>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -287,7 +313,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
           style={{ background: accent }}
         >
           <MessageSquare className="size-5" />
-          <span className="text-sm font-medium">گفتگوی تصادفی!</span>
+          <span className="text-sm font-medium">گفتگو با منشی</span>
         </button>
       )}
     </>

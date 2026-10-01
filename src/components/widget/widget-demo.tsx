@@ -14,13 +14,26 @@ export function WidgetDemoPage() {
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [selected, setSelected] = useState<MarketplaceItem | null>(null);
   const [copied, setCopied] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api<MarketplaceItem[]>("/api/marketplace").then((d) => {
-      setItems(d);
-      const first = d[0];
-      if (first) { setSelected(first); setActiveTenant(first.id, first.slug); }
-    });
+    let mounted = true;
+    api<MarketplaceItem[]>("/api/marketplace")
+      .then((d) => {
+        if (!mounted) return;
+        setItems(d);
+        const first = d[0];
+        if (first) {
+          setSelected(first);
+          setActiveTenant(first.id, first.slug);
+        }
+      })
+      .catch((e: any) => mounted && setLoadError(e?.message || "خطا در دریافت لیست کسب‌وکارها"))
+      .finally(() => mounted && setLoading(false));
+    return () => {
+      mounted = false;
+    };
   }, [setActiveTenant]);
 
   const embedCode = selected
@@ -104,7 +117,9 @@ export function WidgetDemoPage() {
               <FloatingWidget tenantId={selected.id} variant="panel" initialOpen accentColor={selected.accentColor} businessName={selected.name} />
             </div>
           ) : (
-            <div className="h-[480px] grid place-items-center text-sm text-muted-foreground">در حال بارگذاری…</div>
+            <div className="h-[480px] grid place-items-center text-sm text-muted-foreground px-6 text-center">
+              {loading ? "در حال بارگذاری…" : loadError || "کسب‌وکاری برای پیش‌نمایش یافت نشد"}
+            </div>
           )}
           <Button variant="ghost" size="sm" className="w-full mt-3" onClick={() => useApp.getState().setView("signup")}>
             می‌خواهم برای کسب‌وکارم بسازم <ArrowRight className="size-4" />

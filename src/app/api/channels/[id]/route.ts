@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isResponse, requireTenantOwner } from "@/lib/auth";
+import { decryptSecret } from "@/lib/crypto";
 
 // DELETE /api/channels/[id]?tenantId= — disconnect a channel
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
-  if (!tenantId) return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+  const auth = await requireTenantOwner(req, searchParams.get("tenantId"));
+  if (isResponse(auth)) return auth;
 
-  const conn = await db.channelConnection.findFirst({ where: { id, tenantId } });
+  const conn = await db.channelConnection.findFirst({ where: { id, tenantId: auth.tenantId } });
   if (!conn) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  // For Telegram and Bale, delete the webhook on the Bot API
   let webhookDeleted = true;
   if (conn.platform === "telegram" || conn.platform === "bale") {
     try {
-      const creds = JSON.parse(conn.credentialsJson);
+      const creds = JSON.parse(decryptSecret(conn.credentialsJson) || "{}");
       if (creds.botToken) {
-        const baseUrl = conn.platform === "telegram"
-          ? `https://api.telegram.org/bot${creds.botToken}/deleteWebhook`
-          : `https://tapi.bale.ai/bot${creds.botToken}/deleteWebhook`;
+        const baseUrl =
+          conn.platform === "telegram"
+            ? `https://api.telegram.org/bot${creds.botToken}/deleteWebhook`
+            : `https://tapi.bale.ai/bot${creds.botToken}/deleteWebhook`;
 
-        const res = await fetch(baseUrl, { method: "POST" });
+        const res = await fetch(baseUrl, { method: "POST", signal: AbortSignal.timeout(8000) });
         const result = await res.json();
         webhookDeleted = result.ok === true;
         if (!webhookDeleted) {
@@ -36,7 +38,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   await db.channelConnection.update({
     where: { id },
-    data: { status: "disconnected", credentialsJson: "{}", webhookUrl: "" },
+    data: { status: "disconnected", credentialsJson: "{}", webhookUrl: "", webhookSecret: "" },
   });
 
   return NextResponse.json({
@@ -53,17 +55,37 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
-  if (!tenantId) return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+  const auth = await requireTenantOwner(req, searchParams.get("tenantId"));
+  if (isResponse(auth)) return auth;
 
-  const conn = await db.channelConnection.findFirst({ where: { id, tenantId } });
+  const conn = await db.channelConnection.findFirst({ where: { id, tenantId: auth.tenantId }, select: { id: true } });
   if (!conn) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const data: any = {};
   if (typeof body.autoReply === "boolean") data.autoReply = body.autoReply;
   if (typeof body.handoffEnabled === "boolean") data.handoffEnabled = body.handoffEnabled;
 
-  const updated = await db.channelConnection.update({ where: { id }, data });
+  const updated = await db.channelConnection.update({
+    where: { id },
+    data,
+    select: {
+      id: true,
+      tenantId: true,
+      platform: true,
+      status: true,
+      handle: true,
+      webhookUrl: true,
+      autoReply: true,
+      handoffEnabled: true,
+      lastMessageAt: true,
+      lastTestedAt: true,
+      lastTestOk: true,
+      errorMessage: true,
+      messageCount: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
   return NextResponse.json(updated);
 }

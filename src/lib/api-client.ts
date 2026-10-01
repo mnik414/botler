@@ -11,6 +11,9 @@ export async function api<T = any>(path: string, opts?: RequestInit): Promise<T>
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("auth:unauthorized"));
+    }
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || "خطای سرور");
   }
@@ -156,11 +159,12 @@ export interface AdminStats {
   plans: { plan: string; code: string; count: number; revenue: number }[];
   topTenants: { id: string; name: string; slug: string; plan: string; status: string; createdAt: string; mrr: number; tokens: number }[];
   revenueTrend: { date: string; revenue: number; conversations: number }[];
-  tokenUsageByTenant: { name: string; tokens: number }[];
+  tokenUsageByTenant: { id: string; name: string; tokens: number }[];
 }
 
 export interface ChatResponse {
   conversationId: string;
+  trackToken?: string;
   reply: string;
   confidence: number;
   sources: RagSource[];

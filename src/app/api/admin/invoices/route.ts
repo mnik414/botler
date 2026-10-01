@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isResponse, requireRole } from "@/lib/auth";
 
 // GET /api/admin/invoices — all invoices across all tenants (for Super Admin)
 export async function GET(req: Request) {
+  const auth = await requireRole(req, ["super_admin"]);
+  if (isResponse(auth)) return auth;
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
 

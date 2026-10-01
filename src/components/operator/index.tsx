@@ -173,8 +173,9 @@ export function OperatorView() {
 
   function markAnswered() {
     if (!selectedId) return;
-    setAnswered((a) => ({ ...a, [selectedId]: !a[selectedId] }));
-    toast.success(answered[selectedId] ? "علامت‌گذاری برداشته شد" : "به‌عنوان پاسخ‌داده‌شده علامت‌گذاری شد");
+    const next = !answered[selectedId];
+    setAnswered((a) => ({ ...a, [selectedId]: next }));
+    toast.success(next ? "به‌عنوان پاسخ‌داده‌شده علامت‌گذاری شد" : "علامت‌گذاری برداشته شد");
   }
 
   // Guard

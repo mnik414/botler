@@ -181,13 +181,9 @@ export function AdminView() {
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="flex items-center gap-2 min-w-0">
               {/* Mobile menu trigger */}
-              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
-                    <Menu className="size-5" />
-                  </Button>
-                </SheetTrigger>
-              </Sheet>
+              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(true)}>
+                <Menu className="size-5" />
+              </Button>
               <div className="min-w-0">
                 <h1 className="text-base font-bold truncate">{active.title}</h1>
                 <p className="text-[11px] text-muted-foreground hidden sm:block">پنل مدیریت پلتفرم منشی هوشمند</p>

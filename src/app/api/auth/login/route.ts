@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { SignJWT } from "jose";
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-dev-secret-change-in-production");
+import { signAuthToken } from "@/lib/auth";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const limit = rateLimit(`login:${clientIp(req)}`, 10, 5 * 60_000);
+    if (!limit.ok) return tooManyRequests(limit.retryAfterSec, "تلاش‌های ورود بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.");
+
     const { email, password } = await req.json();
-    if (!email || !password) {
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return NextResponse.json({ error: "ایمیل و رمز عبور را وارد کنید" }, { status: 400 });
     }
 
     const user = await db.user.findUnique({
-      where: { email: email?.toLowerCase() },
+      where: { email: email.toLowerCase() },
       include: { tenant: true },
     });
     if (!user || !user.passwordHash) {
@@ -25,18 +27,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ایمیل یا رمز عبور اشتباه است" }, { status: 401 });
     }
 
-    // Create JWT (expires in 7 days)
-    const token = await new SignJWT({
-      sub: user.id,
+    const token = await signAuthToken({
+      id: user.id,
       role: user.role,
       tenantId: user.tenantId,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("7d")
-      .sign(JWT_SECRET);
+      tokenVersion: user.tokenVersion,
+    });
 
-    // Set HTTP-only cookie
     const response = NextResponse.json({
       id: user.id,
       email: user.email,
@@ -58,12 +55,13 @@ export async function POST(req: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 7 * 24 * 60 * 60,
       path: "/",
     });
 
     return response;
   } catch (e: any) {
+    console.error("[auth/login]", e);
     return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
   }
 }

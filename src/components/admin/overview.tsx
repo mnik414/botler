@@ -1,7 +1,7 @@
 "use client";
 import { useAsync, StatCard, CardSkeletons, ErrorState, SectionCard, statusBadgeClass, statusLabel, CHART_COLORS } from "./shared";
 import { api, type AdminStats } from "@/lib/api-client";
-import { formatToman, formatNumber, formatCompact, formatDate, toFa } from "@/lib/format";
+import { formatToman, formatNumber, formatCompact, formatDate, formatDay, toFa } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,7 +32,7 @@ export function AdminOverview() {
   }
 
   const k = data.kpis;
-  const trendData = data.revenueTrend.map((p) => ({ ...p, label: p.date.slice(5) }));
+  const trendData = data.revenueTrend.map((p) => ({ ...p, label: formatDay(p.date) }));
   const planData = data.plans.map((p) => ({ name: p.plan, value: p.count, code: p.code }));
   const tokenData = data.tokenUsageByTenant.slice(0, 8);
 

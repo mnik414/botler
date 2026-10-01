@@ -68,7 +68,7 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
       {usdtRate ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-teal-500/5 border border-teal-500/20 rounded-lg px-3 py-2">
           <span className="size-1.5 rounded-full bg-teal-500 animate-pulse" />
-          <span>نرخ لحظه‌ای تتر: <strong className="text-teal-600">{toFa(usdtRate.toLocaleString("en-US"))}</strong> تومان</span>
+          <span>نرخ لحظه‌ای تتر: <strong className="text-teal-600">{formatNumber(usdtRate)}</strong> تومان</span>
         </div>
       ) : null}
 
@@ -187,7 +187,7 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
             <tbody>
               {invoices.slice(0, 5).map((inv) => (
                 <tr key={inv.id} className="border-b last:border-0">
-                  <td className="py-2.5 font-medium font-mono text-xs">{inv.invoiceNumber}</td>
+                  <td className="py-2.5 font-medium font-mono text-xs">{inv.id.slice(-8).toUpperCase()}</td>
                   <td className="py-2.5 tabular-nums">{formatToman(inv.amount)}</td>
                   <td className="py-2.5 text-muted-foreground hidden sm:table-cell">{formatDate(inv.createdAt)}</td>
                   <td className="py-2.5">
@@ -223,7 +223,7 @@ function PurchasePlanDialog({ plan, tenantId, usdtRate, onClose, onSuccess }: {
   const [cycle, setCycle] = React.useState("monthly");
   const [paymentMethod, setPaymentMethod] = React.useState("local_iran");
   const [submitting, setSubmitting] = React.useState(false);
-  const [cryptoResult, setCryptoResult] = React.useState<any | null>(null);
+  const [pendingInvoice, setPendingInvoice] = React.useState<any | null>(null);
 
   const price = cycle === "yearly" ? (plan.priceYearly || plan.priceMonthly * 10)
     : cycle === "quarterly" ? (plan.priceQuarterly || plan.priceMonthly * 3)
@@ -233,11 +233,9 @@ function PurchasePlanDialog({ plan, tenantId, usdtRate, onClose, onSuccess }: {
   const usdtAmount = usdtRate && usdtRate > 0 ? Number((total / usdtRate).toFixed(2)) : 0;
 
   const PAYMENT_METHODS = [
-    { code: "local_iran", label: "کارت بانکی ایرانی", desc: "پرداخت آنلاین به تومان", icon: CreditCard, color: "bg-emerald-500/10 text-emerald-600" },
-    { code: "usdt_trc20", label: "تتر (TRC20)", desc: `≈ ${toFa(usdtAmount)} USDT`, icon: Bitcoin, color: "bg-teal-500/10 text-teal-600", network: "trc20" },
-    { code: "usdt_bep20", label: "تتر (BEP20)", desc: `≈ ${toFa(usdtAmount)} USDT`, icon: Bitcoin, color: "bg-amber-500/10 text-amber-600", network: "bep20" },
-    { code: "usdt_erc20", label: "تتر (ERC20)", desc: `≈ ${toFa(usdtAmount)} USDT`, icon: Bitcoin, color: "bg-violet-500/10 text-violet-600", network: "erc20" },
-    { code: "wallet", label: "کیف پول داخلی", desc: "پرداخت از موجودی", icon: Wallet, color: "bg-sky-500/10 text-sky-600" },
+    { code: "local_iran", label: "کارت بانکی / فیش بانکی", desc: "هماهنگی پرداخت با پشتیبانی", icon: CreditCard, color: "bg-emerald-500/10 text-emerald-600" },
+    { code: "usdt_trc20", label: "تتر (TRC20)", desc: `≈ ${toFa(usdtAmount)} USDT — هماهنگی با پشتیبانی`, icon: Bitcoin, color: "bg-teal-500/10 text-teal-600", network: "trc20" },
+    { code: "usdt_bep20", label: "تتر (BEP20)", desc: `≈ ${toFa(usdtAmount)} USDT — هماهنگی با پشتیبانی`, icon: Bitcoin, color: "bg-amber-500/10 text-amber-600", network: "bep20" },
   ];
 
   const submit = async () => {
@@ -250,26 +248,22 @@ function PurchasePlanDialog({ plan, tenantId, usdtRate, onClose, onSuccess }: {
         body: JSON.stringify({ tenantId, type: "plan", planId: plan.id, provider: paymentMethod, billingCycle: cycle, network }),
       });
 
-      if (result.status === "completed") {
-        toast.success("پرداخت با موفقیت انجام شد. پلن شما فعال شد.");
+      if (result.status === "paid") {
+        toast.success("پرداخت تأیید شد. پلن شما فعال شد.");
         onSuccess();
-      } else if (result.cryptoPayment && result.qrData) {
-        setCryptoResult(result);
-        toast.success("فاکتور صادر شد. لطفاً پرداخت USDT را تکمیل کنید.");
       } else {
-        toast.success("در حال انتقال به درگاه پرداخت…");
-        onSuccess();
+        setPendingInvoice(result);
+        toast.success("فاکتور صادر شد. برای تکمیل پرداخت با پشتیبانی هماهنگ کنید.");
       }
     } catch (e: any) {
-      toast.error(e.message || "خطا در پرداخت");
+      toast.error(e.message || "خطا در صدور فاکتور");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // If crypto payment is in progress, show the QR dialog
-  if (cryptoResult) {
-    return <CryptoQRDialog result={cryptoResult} onClose={() => { onSuccess(); }} tenantId={tenantId} />;
+  if (pendingInvoice) {
+    return <PendingInvoiceDialog result={pendingInvoice} onClose={() => { onSuccess(); }} />;
   }
 
   return (
@@ -360,7 +354,7 @@ function PurchasePlanDialog({ plan, tenantId, usdtRate, onClose, onSuccess }: {
             {paymentMethod.startsWith("usdt") && (
               <div className="flex items-start gap-1.5 text-[10px] text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded p-2">
                 <AlertCircle className="size-3 shrink-0 mt-0.5" />
-                <span>پس از تأیید، آدرس کیف پول و QR کد نمایش داده می‌شود. نرخ تبادل در زمان صدور فاکتور قفل می‌شود.</span>
+                <span>پس از ثبت فاکتور، کارشناسان ما برای هماهنگی پرداخت و ارسال مقصد واریز با شما تماس می‌گیرند.</span>
               </div>
             )}
           </div>
@@ -377,119 +371,35 @@ function PurchasePlanDialog({ plan, tenantId, usdtRate, onClose, onSuccess }: {
   );
 }
 
-// ── Crypto QR Dialog (shown after USDT payment initiation) ──
-function CryptoQRDialog({ result, onClose, tenantId }: { result: any; onClose: () => void; tenantId: string }) {
-  const [copied, setCopied] = React.useState(false);
-  const [status, setStatus] = React.useState<"pending" | "confirmed" | "expired">("pending");
-  const [timeLeft, setTimeLeft] = React.useState(result.expiresAt ? new Date(result.expiresAt).getTime() - Date.now() : 30 * 60 * 1000);
-  const crypto = result.cryptoPayment;
-
-  // Countdown
-  React.useEffect(() => {
-    const t = setInterval(() => {
-      const left = result.expiresAt ? new Date(result.expiresAt).getTime() - Date.now() : 0;
-      setTimeLeft(Math.max(0, left));
-      if (left <= 0) setStatus("expired");
-    }, 1000);
-    return () => clearInterval(t);
-  }, [result.expiresAt]);
-
-  // Poll for confirmation
-  React.useEffect(() => {
-    if (!crypto?.id) return;
-    const t = setInterval(async () => {
-      try {
-        const r = await api<{ status: string }>(`/api/billing/crypto/verify`, {
-          method: "POST", body: JSON.stringify({ cryptoPaymentId: crypto.id }),
-        });
-        if (r.status === "confirmed") {
-          setStatus("confirmed");
-          toast.success("پرداخت تأیید شد! پلن شما فعال شد.");
-          clearInterval(t);
-          setTimeout(onClose, 2000);
-        } else if (r.status === "expired") {
-          setStatus("expired");
-          clearInterval(t);
-        }
-      } catch {}
-    }, 5000);
-    return () => clearInterval(t);
-  }, [crypto?.id, onClose]);
-
-  const mins = Math.floor(timeLeft / 60000);
-  const secs = Math.floor((timeLeft % 60000) / 1000);
-  const networkLabel = crypto?.network?.toUpperCase() || "";
-  const networkColor: Record<string, string> = { trc20: "bg-teal-500/15 text-teal-600", bep20: "bg-amber-500/15 text-amber-600", erc20: "bg-violet-500/15 text-violet-600" };
-
-  if (status === "confirmed") {
-    return (
-      <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="max-w-sm text-center">
-          <div className="grid place-items-center size-16 rounded-full bg-emerald-500/10 text-emerald-600 mx-auto mb-4">
-            <Check className="size-8" />
-          </div>
-          <h3 className="text-lg font-bold mb-1">پرداخت تأیید شد!</h3>
-          <p className="text-sm text-muted-foreground">پلن شما با موفقیت فعال شد.</p>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+// ── Pending invoice dialog (manual payment confirmation) ──
+function PendingInvoiceDialog({ result, onClose }: { result: any; onClose: () => void }) {
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Bitcoin className="size-4" /> پرداخت با USDT</DialogTitle>
-          <DialogDescription>مبلغ دقیق را به آدرس زیر واریز کنید</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><Calendar className="size-4" /> فاکتور ثبت شد</DialogTitle>
+          <DialogDescription>پرداخت شما در انتظار تأیید است</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* QR code */}
-          <div className="flex justify-center">
-            {result.qrData ? (
-              <img src={`/api/billing/crypto/qr?data=${encodeURIComponent(result.qrData)}`} alt="QR Code" className="size-48 rounded-lg border" />
-            ) : null}
-          </div>
-
-          {/* Network badge */}
-          <div className="flex justify-center">
-            <Badge className={networkColor[crypto?.network] || "bg-muted"}>{networkLabel}</Badge>
-          </div>
-
-          {/* Amount */}
-          <div className="text-center">
-            <div className="text-xs text-muted-foreground mb-1">مبلغ قابل پرداخت</div>
-            <div className="text-2xl font-black text-teal-600">₮ {toFa(crypto?.amount || result.amountUsdt || 0)} USDT</div>
-          </div>
-
-          {/* Deposit address */}
-          <div>
-            <Label className="text-xs">آدرس کیف پول</Label>
-            <div className="flex items-center gap-2 mt-1">
-              <code className="flex-1 bg-muted rounded px-2 py-1.5 text-[11px] font-mono break-all" dir="ltr">
-                {result.depositAddress || crypto?.depositAddress}
-              </code>
-              <Button variant="outline" size="icon" className="size-8 shrink-0" onClick={() => { navigator.clipboard.writeText(result.depositAddress || crypto?.depositAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
-                {copied ? <Check className="size-3.5 text-emerald-600" /> : <span className="text-xs">کپی</span>}
-              </Button>
+          <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">شماره فاکتور</span>
+              <span className="font-mono">{result.invoiceNumber || (result.invoiceId || "").slice(-8).toUpperCase()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">مبلغ</span>
+              <span className="font-bold tabular-nums">{formatToman(result.amount || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">وضعیت</span>
+              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600">در انتظار پرداخت</Badge>
             </div>
           </div>
 
-          {/* Invoice number */}
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">شماره فاکتور</span>
-            <span className="font-mono">{result.invoiceNumber || result.invoice?.invoiceNumber}</span>
-          </div>
-
-          {/* Countdown */}
-          <div className={`text-center text-sm font-medium ${timeLeft < 300000 ? "text-red-500" : "text-muted-foreground"}`}>
-            {status === "expired" ? "زمان پرداخت به پایان رسید" : `زمان باقی‌مانده: ${toFa(mins)}:${toFa(secs.toString().padStart(2, "0"))}`}
-          </div>
-
-          {/* Security note */}
-          <div className="flex items-start gap-1.5 text-[10px] text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded p-2">
-            <AlertCircle className="size-3 shrink-0 mt-0.5" />
-            <span>فقط به این آدرس و با این مبلغ دقیق پرداخت کنید. نرخ تبادل قفل شده است.</span>
+          <div className="flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded p-2.5 leading-5">
+            <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+            <span>{result.paymentInstructions || "برای هماهنگی پرداخت با پشتیبانی تماس بگیرید."}</span>
           </div>
         </div>
 
