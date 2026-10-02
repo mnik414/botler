@@ -10,6 +10,7 @@ import {
   ChevronLeft, Bot, Wifi, CalendarCheck,
 } from "lucide-react";
 import { api, type ChatResponse } from "@/lib/api-client";
+import { BOTLER_TENANT_SLUG } from "@/lib/botler";
 import type { ChatMessage } from "@/lib/types";
 import { toFa, timeAgo } from "@/lib/format";
 import { toast } from "sonner";
@@ -171,6 +172,12 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
   const rawAccent = accentColor || tenant?.accentColor || "#10b981";
   const accent = /^#[0-9a-fA-F]{3,8}$/.test(rawAccent) ? rawAccent : "#10b981";
 
+  // Botler's own assistant guides visitors about the platform, not a business.
+  const quickQuestions =
+    tenant?.slug === BOTLER_TENANT_SLUG
+      ? ["باتلر چیه؟", "پلن‌ها و قیمت‌ها", "چطور منشی بسازم؟", "اتصال به سایت"]
+      : ["ساعات کاری؟", "قیمت‌ها چطوره؟", "رزرو میز", "شماره تماس"];
+
   const panel = (
     <div className="flex flex-col h-full bg-card rounded-2xl overflow-hidden shadow-2xl border" style={{ ["--w-accent" as any]: accent }}>
       {/* Header */}
@@ -264,7 +271,7 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
       {/* Quick actions */}
       {messages.length <= 1 && tenant && (
         <div className="px-3 pb-2 flex flex-wrap gap-1.5">
-          {["ساعات کاری؟", "قیمت‌ها چطوره؟", "رزرو میز", "شماره تماس"].map((q) => (
+          {quickQuestions.map((q) => (
             <button key={q} onClick={() => { setInput(q); }} className="text-xs bg-background border rounded-full px-3 py-1.5 hover:bg-accent transition">
               {q}
             </button>
@@ -340,7 +347,9 @@ export function FloatingWidget({ tenantId, initialOpen = false, variant = "float
           style={{ background: accent }}
         >
           <MessageSquare className="size-5" />
-          <span className="text-sm font-medium">گفتگو با منشی</span>
+          <span className="text-sm font-medium">
+            {tenant?.slug === BOTLER_TENANT_SLUG ? "گفتگو با منشی باتلر" : "گفتگو با منشی"}
+          </span>
         </button>
       )}
     </>

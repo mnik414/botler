@@ -167,7 +167,7 @@ export function LandingPage() {
                   <Bot className="size-5" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-semibold text-sm">منشی کافه بامداد</div>
+                  <div className="font-semibold text-sm">منشی هوشمند باتلر</div>
                   <div className="text-[10px] opacity-80 flex items-center gap-1">
                     <span className="size-1.5 rounded-full bg-emerald-300 pulse-dot" />
                     آنلاین
@@ -181,15 +181,15 @@ export function LandingPage() {
                 {/* User msg */}
                 <div className="flex justify-start">
                   <div className="bg-background border rounded-2xl rounded-tr-sm px-3 py-2 text-sm max-w-[80%] shadow-sm">
-                    سلام، ساعات کاری کافه چنده؟ میز رزرو می‌کنید؟
+                    باتلر چیه و چطور می‌تونم منشی هوشمند بسازم؟
                   </div>
                 </div>
                 {/* Bot reply */}
                 <div className="flex justify-end">
                   <div className="bg-primary text-primary-foreground rounded-2xl rounded-tl-sm px-3 py-2 text-sm max-w-[80%] shadow-sm">
-                    سلام! کافه بامداد هر روز از ۹ صبح تا ۱۲ نیمه‌شب پذیرای شماست 🌙
-                    بله، رزرو میز انجام می‌شود. لطفاً تعداد نفرات و زمان مورد نظر
-                    را بفرمایید.
+                    سلام! باتلر پلتفرم ساخت منشی هوش مصنوعیه؛ بدون کدنویسی، در
+                    ۴ قدم ساده منشی اختصاصی کسب‌وکارت رو بساز 🌱 درباره
+                    امکانات، پلن‌ها و اتصال به سایت هم راهنماییت می‌کنم.
                   </div>
                 </div>
                 {/* Typing */}
@@ -346,11 +346,11 @@ export function LandingPage() {
         >
           <Star className="size-8 mx-auto mb-3" />
           <h3 className="text-2xl md:text-3xl font-black mb-3">
-            همین حالا با یک منشی واقعی گفتگو کنید
+            همین حالا با منشی هوشمند باتلر گفتگو کنید
           </h3>
           <p className="opacity-90 max-w-xl mx-auto mb-6 leading-7">
-            بدون ثبت‌نام، با چند نمونه منشی فعال در پلتفرم گفتگو کنید و کیفیت
-            پاسخ‌ها را از نزدیک ببینید.
+            بدون ثبت‌نام، از خود باتلر درباره امکانات، پلن‌ها و نحوه ساخت منشی
+            هوشمند بپرسید.
           </p>
           <Button
             size="lg"
@@ -359,7 +359,7 @@ export function LandingPage() {
             className="gap-2 text-base h-12"
           >
             <MessageSquare className="size-5" />
-            شروع گفتگوی زنده
+            شروع گفتگو با منشی باتلر
           </Button>
         </motion.div>
       </section>

@@ -19,14 +19,35 @@ export function WidgetDemoPage() {
 
   useEffect(() => {
     let mounted = true;
-    api<MarketplaceItem[]>("/api/marketplace")
-      .then((d) => {
+    Promise.all([
+      api<MarketplaceItem[]>("/api/marketplace"),
+      api<any>("/api/public/assistant").catch(() => null),
+    ])
+      .then(([businesses, assistant]) => {
         if (!mounted) return;
-        setItems(d);
+        // Botler's own assistant always comes first; customer demos follow.
+        const assistantItem: MarketplaceItem | null = assistant?.id
+          ? {
+              id: assistant.id,
+              slug: assistant.slug,
+              name: assistant.agentName || assistant.name,
+              description: assistant.greetingMessage || assistant.description || "",
+              businessType: assistant.businessType,
+              businessTypeLabel: "منشی باتلر · راهنمای پلتفرم",
+              icon: assistant.icon || "Briefcase",
+              category: assistant.category || "service",
+              accentColor: assistant.accentColor || "#10b981",
+              instagram: assistant.instagram || "",
+              phone: assistant.phone || "",
+              address: assistant.address || "",
+            }
+          : null;
+        const list = assistantItem ? [assistantItem, ...businesses] : businesses;
+        setItems(list);
         // Deep link: /?view=widget-demo&tenantId=... shows that business first.
         const params = new URLSearchParams(window.location.search);
         const requestedId = params.get("tenantId");
-        const target = (requestedId && d.find((x) => x.id === requestedId)) || d[0];
+        const target = (requestedId && list.find((x) => x.id === requestedId)) || list[0];
         if (target) {
           setSelected(target);
           setActiveTenant(target.id, target.slug);
@@ -55,7 +76,7 @@ export function WidgetDemoPage() {
     <div className="container mx-auto px-4 py-10">
       <div className="text-center max-w-2xl mx-auto mb-10">
         <h1 className="text-3xl md:text-4xl font-extrabold mb-3">دموی زنده منشی هوشمند</h1>
-        <p className="text-muted-foreground">یک کسب‌وکار را انتخاب کنید و مستقیماً با منشی هوش مصنوعی آن گفتگو کنید. این همان تجربه‌ای است که مشتریان شما خواهند داشت.</p>
+        <p className="text-muted-foreground">ابتدا با <span className="font-semibold text-foreground">منشی هوشمند باتلر</span> درباره خود پلتفرم گفتگو کنید؛ سپس می‌توانید یک نمونه کسب‌وکار را انتخاب کنید و تجربه‌ای را که مشتریان شما خواهند داشت ببینید.</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">

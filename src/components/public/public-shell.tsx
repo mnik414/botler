@@ -17,6 +17,7 @@ const NAV = [
   { key: "landing", label: "خانه" },
   { key: "marketplace", label: "بازار کسب‌وکارها" },
   { key: "pricing", label: "پلن‌ها" },
+  { key: "widget-demo", label: "منشی باتلر" },
   { key: "track", label: "پیگیری درخواست" },
 ] as const;
 
@@ -41,7 +42,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
               <Sparkles className="size-5" />
             </div>
             <div className="text-right leading-tight">
-              <div className="font-bold text-base">منشی هوشمند</div>
+              <div className="font-bold text-base">باتلر</div>
               <div className="text-[10px] text-muted-foreground">AI Receptionist Platform</div>
             </div>
           </button>
@@ -128,7 +129,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <div className="grid place-items-center size-8 rounded-lg bg-primary text-primary-foreground"><Sparkles className="size-4" /></div>
-              <span className="font-bold">منشی هوشمند</span>
+              <span className="font-bold">باتلر</span>
             </div>
             <p className="text-sm text-muted-foreground leading-6">پلتفرم ساخت منشی هوش مصنوعی اختصاصی برای کسب‌وکارها. پاسخگویی ۲۴ ساعته، فروش، رزرو و پشتیبانی.</p>
           </div>
@@ -138,7 +139,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
               <li><button className="hover:text-foreground" onClick={() => setView("pricing")}>پلن‌ها و تعرفه</button></li>
               <li><button className="hover:text-foreground" onClick={() => setView("signup")}>ساخت منشی رایگان</button></li>
               <li><button className="hover:text-foreground" onClick={() => setView("marketplace")}>بازار کسب‌وکارها</button></li>
-              <li><button className="hover:text-foreground" onClick={() => setView("widget-demo")}>دمو ویجت</button></li>
+              <li><button className="hover:text-foreground" onClick={() => setView("widget-demo")}>گفتگو با منشی باتلر</button></li>
             </ul>
           </div>
           <div>

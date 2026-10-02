@@ -332,6 +332,65 @@ const DEMO_TENANTS = [
   },
 ];
 
+// ────────────────────────────────────────────────────────────
+// Botler's own assistant — the platform's own receptionist shown on the
+// marketing site (floating widget / live demo). It only answers questions
+// about Botler itself and is excluded from the public marketplace.
+// Keep the slug in sync with BOTLER_TENANT_SLUG in src/lib/botler.ts.
+// ────────────────────────────────────────────────────────────
+const BOTLER_TENANT_SLUG = "botler";
+
+const BOTLER_KNOWLEDGE = [
+  {
+    type: "faq",
+    title: "باتلر چیست؟",
+    question: "باتلر چیست و چه کاری انجام می‌دهد؟",
+    content: "باتلر یک پلتفرم منشی هوش مصنوعی چندمستاجری است که به کسب‌وکارها امکان می‌دهد در چند دقیقه یک منشی اختصاصی بسازند. منشی باتلر ۲۴ ساعته به سوالات مشتریان پاسخ می‌دهد، رزرو و سفارش ثبت می‌کند، اطلاعات تماس مشتری (لید) را جمع می‌کند و در موارد حساس گفتگو را به اپراتور انسانی ارجاع می‌دهد.",
+  },
+  {
+    type: "faq",
+    title: "امکانات و قابلیت‌ها",
+    question: "امکانات و قابلیت‌های پلتفرم باتلر چیست؟",
+    content: "امکانات باتلر: پایگاه دانش RAG (سوالات متداول، PDF، فایل اکسل و وب‌سایت)، سازنده منشی با پرامپت آماده هر کسب‌وکار، اتصال چندکاناله (ویجت وب‌سایت، اینستاگرام، واتساپ، تلگرام و بله)، ثبت خودکار لید و CRM، ثبت سفارش و رزرو، انتقال گفتگو به اپراتور، امتیاز اطمینان برای هر پاسخ، داشبورد تحلیلی و سیستم ارجاع دوستان.",
+  },
+  {
+    type: "faq",
+    title: "پلن‌ها و قیمت",
+    question: "پلن‌ها و هزینه اشتراک باتلر چقدر است؟",
+    content: "پلن استارتر ۲۹۰ هزار تومان در ماه با ۱۰۰۰ پیام؛ پلن گراث ۸۹۰ هزار تومان در ماه با ۵۰۰۰ پیام و ۱۲۰ دقیقه تماس صوتی؛ پلن بیزینس ۱ میلیون و ۹۹۰ هزار تومان در ماه با ۲۰۰۰۰ پیام، همه کانال‌ها و ۶۰۰ دقیقه تماس؛ پلن سازمانی ۴ میلیون و ۹۹۰ هزار تومان با پیام و تماس نامحدود و پشتیبانی اختصاصی. برای شروع می‌توانید رایگان ثبت‌نام کنید.",
+  },
+  {
+    type: "faq",
+    title: "ساخت منشی در ۴ قدم",
+    question: "چطور می‌توانم منشی هوشمند بسازم؟",
+    content: "برای ساخت منشی هوشمند: ۱) ثبت‌نام رایگان در پلتفرم؛ ۲) وارد کردن دانش کسب‌وکار (سوالات متداول، فایل یا آدرس وب‌سایت)؛ ۳) دریافت منشی اختصاصی با پرامپت آماده؛ ۴) اتصال به کانال‌های مشتری مثل ویجت وب‌سایت، اینستاگرام و واتساپ. کل فرآیند کمتر از ۱۰ دقیقه زمان می‌برد و نیازی به دانش فنی ندارد.",
+  },
+  {
+    type: "faq",
+    title: "اتصال ویجت به سایت",
+    question: "چطور ویجت منشی را در سایت خودم قرار دهم؟",
+    content: "پس از ساخت منشی، از داشبورد کد امبد را کپی کنید و در سایت خود قرار دهید؛ با یک اسکریپت ساده ویجت گفتگو روی سایت شما فعال می‌شود. اتصال به اینستاگرام، واتساپ، تلگرام و بله نیز از بخش کانال‌ها انجام می‌شود.",
+  },
+  {
+    type: "faq",
+    title: "امنیت و حریم خصوصی",
+    question: "امنیت و حریم خصوصی اطلاعات چگونه است؟",
+    content: "داده‌های هر کسب‌وکار به صورت مستقل (چندمستاجری) نگهداری می‌شود، کلیدهای API به‌صورت رمزنگاری‌شده ذخیره می‌شوند، وب‌هوک‌ها با امضا اعتبارسنجی می‌شوند و دسترسی‌ها بر اساس نقش کاربران کنترل می‌شود.",
+  },
+  {
+    type: "faq",
+    title: "تماس و پشتیبانی",
+    question: "چطور با پشتیبانی باتلر تماس بگیرم؟",
+    content: "برای ارتباط با تیم باتلر می‌توانید از همین گفتگو استفاده کنید، به support@botler.help ایمیل بزنید یا با شماره ۰۲۱-۹۱۰۰۲۰۳۰ تماس بگیرید. برای شروع ساخت منشی رایگان، در پلتفرم ثبت‌نام کنید.",
+  },
+];
+
+const BOTLER_SYSTEM_PROMPT = `تو «منشی هوشمند باتلر» هستی؛ دستیار و راهنمای رسمی پلتفرم باتلر.
+وظیفه تو راهنمایی کاربران درباره خود پلتفرم باتلر است: امکانات، پلن‌ها و قیمت‌ها، نحوه ساخت منشی هوشمند، اتصال کانال‌ها (ویجت سایت، اینستاگرام، واتساپ، تلگرام، بله)، ثبت لید، رزرو و سفارش، امنیت و پشتیبانی.
+فقط درباره باتلر و خدمات آن صحبت کن؛ اگر کاربر سوال بی‌ربط پرسید، محترمانه توضیح بده که فقط راهنمای باتلر هستی و موضوع را به باتلر برگردان.
+از دانش ارائه‌شده پاسخ بده؛ اگر پاسخ را نمی‌دانی صادقانه بگو و کاربر را به ثبت‌نام یا پشتیبانی ارجاع بده.
+پاسخ‌ها کوتاه، فارسی، صمیمی و دقیق باشند. برای دعوت به اقدام، کاربر را به دکمه «ساخت منشی رایگان» یا صفحه پلن‌ها راهنمایی کن.`;
+
 function buildChunks(content: string, question?: string): KnowledgeChunk[] {
   const sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
   return sentences.slice(0, 3).map((s) => ({
@@ -342,6 +401,69 @@ function buildChunks(content: string, question?: string): KnowledgeChunk[] {
 
 function getBusinessType(code: string): BusinessTypeInfo {
   return BUSINESS_TYPES.find((bt) => bt.code === code) || BUSINESS_TYPES[BUSINESS_TYPES.length - 1];
+}
+
+// Idempotent: creates Botler's own tenant/agent/knowledge if missing. Runs on
+// every `npm run db:seed` (even when the demo data already exists) so existing
+// installs get the platform assistant without a destructive --force reseed.
+// Never overwrites an existing tenant/agent, so admin edits are preserved.
+async function ensureBotlerTenant() {
+  const existing = await db.tenant.findUnique({
+    where: { slug: BOTLER_TENANT_SLUG },
+    include: { agent: true },
+  });
+  if (existing) {
+    console.log("ℹ️  Botler assistant tenant already exists — skipping.");
+    return existing;
+  }
+
+  const tenant = await db.tenant.create({
+    data: {
+      slug: BOTLER_TENANT_SLUG,
+      name: "باتلر",
+      businessType: "other",
+      description: "پلتفرم ساخت منشی هوش مصنوعی اختصاصی برای کسب‌وکارها",
+      website: process.env.NEXT_PUBLIC_BASE_URL || "",
+      phone: "021-91002030",
+      accentColor: "#10b981",
+      category: "service",
+      status: "active",
+    },
+  });
+
+  await db.agent.create({
+    data: {
+      tenantId: tenant.id,
+      name: "منشی هوشمند باتلر",
+      systemPrompt: BOTLER_SYSTEM_PROMPT,
+      greetingMessage:
+        "سلام! 👋 من منشی هوشمند باتلر هستم. درباره امکانات، پلن‌ها و نحوه ساخت منشی هوشمند بپرسید تا راهنمایی‌تان کنم.",
+      channelsJson: JSON.stringify(["website", "widget"]),
+      voiceEnabled: false,
+      // Botler's own assistant is a guide, not a sales funnel.
+      humanHandoff: false,
+      growthLoop: false,
+    },
+  });
+
+  for (const k of BOTLER_KNOWLEDGE) {
+    const chunks = buildChunks(k.content, k.question);
+    await db.knowledgeItem.create({
+      data: {
+        tenantId: tenant.id,
+        type: k.type,
+        title: k.title,
+        question: k.question,
+        content: k.content,
+        chunksJson: JSON.stringify(chunks),
+        status: "ready",
+        size: k.content.length,
+      },
+    });
+  }
+
+  console.log("  🤖 Botler assistant tenant created (slug: botler)");
+  return tenant;
 }
 
 async function seedDatabase(force = false) {
@@ -504,6 +626,8 @@ async function main() {
 
   try {
     await seedDatabase(force);
+    // Always ensure the platform's own assistant exists (idempotent).
+    await ensureBotlerTenant();
   } catch (e: any) {
     console.error("❌ Seed failed:", e.message);
     process.exit(1);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getBusinessType } from "@/lib/business-types";
+import { BOTLER_TENANT_SLUG } from "@/lib/botler";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { parsePagination } from "@/lib/pagination";
 
@@ -13,7 +14,8 @@ export async function GET(req: Request) {
   const q = (searchParams.get("q") || "").slice(0, 100);
   const { limit, offset } = parsePagination(searchParams, { limit: 200, max: 200 });
 
-  const where: any = { status: "active" };
+  // The platform's own assistant is not a customer business.
+  const where: any = { status: "active", slug: { not: BOTLER_TENANT_SLUG } };
   if (category && category !== "all") where.category = category;
   if (q) {
     where.OR = [{ name: { contains: q } }, { description: { contains: q } }];

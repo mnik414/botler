@@ -38,6 +38,7 @@ function parseViewFromUrl(): { view: string; tenantSlug?: string } {
 export default function Home() {
   const { view, session, activeTenantId, setView, restoreSession, setActiveTenant, setReferralCode } = useApp();
   const [booting, setBooting] = useState(true);
+  const [assistantTenantId, setAssistantTenantId] = useState<string | null>(null);
 
   // Initial boot: parse URL, resolve embed tenant, rehydrate session from server
   useEffect(() => {
@@ -92,6 +93,16 @@ export default function Home() {
     return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
   }, []);
 
+  // The public site promotes Botler's own assistant, never a customer business.
+  useEffect(() => {
+    (async () => {
+      try {
+        const a = await api<{ id: string }>("/api/public/assistant");
+        if (a?.id) setAssistantTenantId(a.id);
+      } catch {}
+    })();
+  }, []);
+
   // Handle popstate (browser back/forward)
   useEffect(() => {
     const onPopState = () => {
@@ -141,8 +152,11 @@ export default function Home() {
     );
   }
 
+  // The bottom "chat with assistant" button always belongs to Botler's own
+  // assistant on every page of the site — never to a sample/customer business.
   const isPublic = ["landing", "marketplace", "pricing", "login", "signup", "widget-demo", "business", "referral", "track"].includes(view);
-  const showFloating = isPublic && view !== "widget-demo" && view !== "business" && view !== "referral" && view !== "track" && (activeTenantId || session?.tenant?.id);
+  const floatingTenantId = assistantTenantId;
+  const showFloating = !!floatingTenantId;
 
   return (
     <>
@@ -170,7 +184,7 @@ export default function Home() {
         </PublicShell>
       )}
 
-      {showFloating && <FloatingWidget tenantId={(activeTenantId || session?.tenant?.id) as string} />}
+      {showFloating && <FloatingWidget tenantId={floatingTenantId as string} />}
     </>
   );
 }
